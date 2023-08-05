@@ -39,6 +39,6 @@ mon1 1x sheet_prussian2_1200.png 30 31 32 38 39 40
 for F in sheet_*_1200.png
 do
 	OUT=$(echo $F | sed 's/_1200.png//')
-	pngtopnm "$F" | pnmdepth 65535 | pnmgamma -ungamma -srgbramp | pnmscale 0.0625 | pnmgamma -srgbramp | pnmtopng > ${OUT}_75.png
-	pngtopnm "$F" | pnmdepth 65535 | pnmgamma -ungamma -srgbramp | pnmscale 0.125 | pnmgamma -srgbramp | pnmtopng > ${OUT}_150.png
+	pngtopnm "$F" | pnmdepth 65535 | pnmgamma -ungamma -srgbramp | pnmscale 0.0625 | pnmgamma -srgbramp | pnmdepth 255 | pnmtopng > ${OUT}_75.png
+	pngtopnm "$F" | pnmdepth 65535 | pnmgamma -ungamma -srgbramp | pnmscale 0.125 | pnmgamma -srgbramp | pnmdepth 255 | pnmtopng > ${OUT}_150.png
 done
