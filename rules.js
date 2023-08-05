@@ -6,7 +6,7 @@ const COALITION = "Coalition"
 exports.roles = [ FRENCH, COALITION ]
 exports.scenarios = [ "June 16-18", "June 15-18" ]
 
-const map = require("./map")
+const data = require("./data")
 
 var game = null
 var view = null
@@ -16,73 +16,25 @@ const OPEN = 0
 const TOWN = 1
 const STREAM = 2
 
-const HQ = 0
-const INF = 1
-const CAV = 2
-const DET = 3
+const DET_OLD_GUARD = 25
+const DET_GRAND_BATTERY = 28
 
 const first_hq = 0
-const F_HQ_NAPOLEON = 0
-const F_HQ_NEY = 1
-const F_HQ_GROUCHY = 2
-const A_HQ_WELLINGTON = 3
-const P_HQ_BLUCHER = 4
 const last_hq = 4
-
 const first_french_corps = 5
-const F_INF_CORPS_1 = 5
-const F_INF_CORPS_2 = 6
-const F_INF_CORPS_3 = 7
-const F_INF_GD = 8
-const F_CAV_GD = 9
-const F_CAV_RES = 10
-const F_INF_CORPS_4 = 11
-const F_INF_CORPS_6 = 12
 const last_french_corps = 12
-
 const first_anglo_corps = 13
-const A_INF_ORANGE = 13
-const A_INF_WELLINGTON = 14
-const A_INF_HILL_2 = 15
-const A_CAV_UXBRIDGE = 16
-const A_INF_HILL_1 = 17
 const last_anglo_corps = 17
-
 const first_prussian_corps = 18
-const P_INF_ZIETHEN = 18
-const P_INF_PIRCH = 19
-const P_INF_THIELMANN = 20
-const P_INF_BULOW = 21
-const P_CAV_GNEISENAU = 22
 const last_prussian_corps = 22
 const last_corps = 22
-
 const first_french_detachment = 23
-const F_DET_1 = 23
-const F_DET_2 = 24
-const F_DET_GD = 25
-const F_DET_RES_CAV = 26
-const F_DET_GD_CAV = 27
-const F_DET_BATTERY = 28
 const last_french_detachment = 28
-
 const first_anglo_detachment = 29
-const A_DET_PERPONCHER = 29
-const A_DET_KGL = 30
-const A_DET_FREDERICK = 31
-const A_DET_COLLAERT = 32
 const last_anglo_detachment = 32
-
 const first_prussian_detachment = 33
-const P_DET_STEINMETZ = 33
-const P_DET_PIRCH = 34
-const P_DET_LUTZOW = 35
-const P_DET_SOHR = 36
-const P_DET_MARWITZ = 37
-const P_DET_SCHWERIN = 38
 const last_prussian_detachment = 38
-
-const piece_count = 39
+const piece_count = data.pieces.length
 
 function is_map_hex(row, col) {
 	return row >= 10 && row <= 40 && col >= 0 && col <= 41
@@ -137,6 +89,22 @@ states.setup = {
 	},
 }
 
+states.edit_town = {
+	prompt() {
+		view.roads = data.map.roads
+	},
+}
+
+// === SETUP ===
+
+function setup_piece(side, name, hex, flip = 0) {
+	let id = data.pieces.findIndex(pc => pc.side === side && pc.name === name)
+	if (id < 0)
+		throw new Error("INVALID PIECE NAME: " + name)
+	game.pieces[id] = hex
+	game.flip[id] = flip
+}
+
 exports.setup = function (seed, scenario, options) {
 	game = {
 		seed,
@@ -144,49 +112,77 @@ exports.setup = function (seed, scenario, options) {
 		undo: [],
 		log: [],
 		active: FRENCH,
+		turn: 3,
 		pieces: new Array(piece_count).fill(0),
 		flip: new Array(piece_count).fill(0),
+		remain: 0,
 		state: "setup",
 	}
 
-	game.pieces[F_HQ_NAPOLEON] = 1217
-	game.pieces[F_INF_GD] = 1217
-	game.pieces[F_HQ_GROUCHY] = 1621
-	game.pieces[F_HQ_NEY] = 2218
-	game.pieces[F_INF_CORPS_2] = 2218
-	game.pieces[F_INF_CORPS_1] = 1617
-	game.pieces[F_INF_CORPS_3] = 1721
-	game.pieces[F_INF_CORPS_4] = 1221
-	game.pieces[F_INF_CORPS_6] = 1117
-	game.pieces[F_CAV_GD] = 2317
-	game.pieces[F_CAV_RES] = 1822
-	game.pieces[F_DET_1] = 1314
+	setup("French", "Napoleon HQ", 1217)
+	setup("French", "Guard Corps (Drouot)", 1217)
+	setup("French", "Grouchy HQ", 1621)
+	setup("French", "Ney HQ", 2218)
+	setup("French", "II Corps (Reille)", 2218)
+	setup("French", "I Corps (d'Erlon)", 1617)
+	setup("French", "III Corps (Vandamme)", 1721)
+	setup("French", "IV Corps (Gerard)", 1221)
+	setup("French", "VI Corps (Lobau)", 1117)
+	setup("French", "Guard Cav Corps (Guyot)", 2317)
+	setup("French", "Res Cav Corps (Grouchy)", 1822)
+	setup("French", "I Detachment (Jacquinot)", 1314)
 
-	game.pieces[A_HQ_WELLINGTON] = 2818
-	game.flip[A_HQ_WELLINGTON] = 1 // battle mode
-	game.pieces[A_INF_WELLINGTON] = 3715
-	game.pieces[A_INF_ORANGE] = 3002
-	game.pieces[A_INF_HILL_1] = 3
-	game.pieces[A_CAV_UXBRIDGE] = 4
-	game.pieces[A_DET_COLLAERT] = 1211
-	game.pieces[A_DET_PERPONCHER] = 2618
+	setup("Anglo", "Wellington HQ", 2818, 1)
+	setup("Anglo", "Reserve Corps (Wellington)", 3715)
+	setup("Anglo", "I Corps (Orange)", 3002)
+	setup("Anglo", "II Corps (Hill*)", 3)
+	setup("Anglo", "Cav Corps (Uxbridge)", 4)
+	setup("Anglo", "Cav Detachment (Collaert)", 1211)
+	setup("Anglo", "I Detachment (Perponcher)", 2618)
 
-	game.pieces[P_HQ_BLUCHER] = 2324
-	game.pieces[P_CAV_GNEISENAU] = 2324
-	game.flip[P_CAV_GNEISENAU] = 1 // battle
-	game.pieces[P_INF_ZIETHEN] = 1922
-	game.flip[P_INF_ZIETHEN] = 1 // battle
-	game.pieces[P_INF_PIRCH] = 1928
-	game.pieces[P_INF_THIELMANN] = 1737
-	game.pieces[P_INF_BULOW] = 3
-	game.pieces[P_DET_LUTZOW] = 1623
+	setup("Prussian", "Blucher HQ", 2324)
+	setup("Prussian", "Cav Corps (Gneisenau)", 2324, 1)
+	setup("Prussian", "I Corps (Ziethen)", 1922, 1)
+	setup("Prussian", "II Corps (Pirch)", 1928)
+	setup("Prussian", "III Corps (Thielmann)", 1737)
+	setup("Prussian", "IV Corps (Bulow)", 3)
+	setup("Prussian", "I Detachment (Lutzow)", 1623)
 
 	return game
 }
 
-exports.view = function (state) {
-	view = { ...state }
-	return state
+// === COMMON ===
+
+exports.view = function (state, player) {
+	view = {
+		prompt: null,
+		actions: null,
+		log: game.log,
+		pieces: game.pieces,
+		flip: game.flip,
+	}
+
+	if (game.state === "game_over") {
+		view.prompt = game.victory
+	} else if (game.active !== player) {
+		let inactive = states[game.state].inactive || game.state
+		view.prompt = `Waiting for ${game.active} \u2014 ${inactive}.`
+	} else {
+		view.actions = {}
+		view.who = game.who
+		if (states[game.state])
+			states[game.state].prompt(current)
+		else
+			view.prompt = "Unknown state: " + game.state
+		if (view.actions.undo === undefined) {
+			if (game.undo && game.undo.length > 0)
+				view.actions.undo = 1
+			else
+				view.actions.undo = 0
+		}
+	}
+
+	return view
 }
 
 exports.action = function (state, player, action, arg) {
@@ -199,28 +195,6 @@ exports.action = function (state, player, action, arg) {
 	else
 		throw new Error("Invalid action: " + action)
 	return game
-}
-
-exports.view = function(state, player) {
-	game = state
-
-	view = { ...game, prompt: null }
-
-	if (game.state === "game_over") {
-		view.prompt = game.victory
-	} else if (player !== game.active) {
-		let inactive = states[game.state].inactive || game.state
-		view.prompt = `Waiting for ${game.active} \u2014 ${inactive}.`
-	} else {
-		view.actions = {}
-		states[game.state].prompt()
-		if (game.undo && game.undo.length > 0)
-			view.actions.undo = 1
-		else
-			view.actions.undo = 0
-	}
-
-	return view;
 }
 
 exports.resign = function (state, player) {

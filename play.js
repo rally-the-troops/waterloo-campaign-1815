@@ -8,12 +8,6 @@ const map_h = 31
 const first_hex = 1000
 const last_hex = 4041
 
-const hex_name_list = {
-	4006: "Halle",
-	4038: "Jodoigne",
-	3933: "Roux-Miroir",
-}
-
 function set_has(set, item) {
 	if (!set)
 		return false
@@ -128,8 +122,8 @@ function build_hexes() {
 			hex.addEventListener("mouseenter", on_focus_hex)
 			hex.addEventListener("mouseleave", on_blur)
 			hex.my_id = hex_id
-			if (hex_name_list[hex_id])
-				hex.my_name = String(hex_id) + " (" + hex_name_list[hex_id] + ")"
+			if (data.map.names[hex_id])
+				hex.my_name = String(hex_id) + " (" + data.map.names[hex_id] + ")"
 			else
 				hex.my_name = String(hex_id)
 
@@ -152,6 +146,25 @@ function is_action(action, arg) {
 	if (arg === undefined)
 		return !!(view.actions && view.actions[action] === 1)
 	return !!(view.actions && view.actions[action] && set_has(view.actions[action], arg))
+}
+
+function find_hex_side(a, b) {
+	if (a > b)
+		return find_hex_side(b, a)
+	if (b === a + 1)
+		return (a << 2) + 0
+	if ((a/100) & 1) {
+		if (b === a + 101)
+			return (a << 2) + 1
+		if (b === a + 100)
+			return (a << 2) + 2
+	} else {
+		if (b === a + 100)
+			return (a << 2) + 1
+		if (b === a + 99)
+			return (a << 2) + 2
+	}
+	return -1
 }
 
 function on_update() {
@@ -185,6 +198,16 @@ function on_update() {
 			ui.pieces[id].classList.add("hide")
 		}
 		ui.pieces[id].classList.toggle("action", is_action("piece", id))
+	}
+
+	if (view.roads) {
+		for (let road of view.roads) {
+			for (let i = 1; i < road.length; ++i) {
+				let id = find_hex_side(road[i-1], road[i])
+				console.log("id", id)
+				ui.sides[id].classList.add("road")
+			}
+		}
 	}
 
 	action_button("edit_town", "Town")
