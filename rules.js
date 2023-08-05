@@ -3,7 +3,11 @@
 const FRENCH = "French"
 const COALITION = "Coalition"
 
-exports.roles = [ FRENCH, COALITION ]
+const P1 = FRENCH
+const P2 = COALITION
+
+exports.roles = [ P1, P2 ]
+
 exports.scenarios = [ "June 16-18", "June 15-18" ]
 
 const data = require("./data")
@@ -16,25 +20,99 @@ const OPEN = 0
 const TOWN = 1
 const STREAM = 2
 
-const DET_OLD_GUARD = 25
-const DET_GRAND_BATTERY = 28
+const OLD_GUARD = 25
+const GRAND_BATTERY = 28
 
-const first_hq = 0
-const last_hq = 4
-const first_french_corps = 5
-const last_french_corps = 12
-const first_anglo_corps = 13
-const last_anglo_corps = 17
-const first_prussian_corps = 18
-const last_prussian_corps = 22
-const last_corps = 22
-const first_french_detachment = 23
-const last_french_detachment = 28
-const first_anglo_detachment = 29
-const last_anglo_detachment = 32
-const first_prussian_detachment = 33
-const last_prussian_detachment = 38
-const piece_count = data.pieces.length
+function make_piece_list(f) {
+	let list = []
+	for (let p = 0; p < data.pieces.length; ++p)
+		if (f(data.pieces[p]))
+			list.push(p)
+	return list
+}
+
+const p1_hqs = make_piece_list(p => p.side === P1 && p.type === "hq")
+const p2_hqs = make_piece_list(p => p.side !== P1 && p.type === "hq")
+const p1_cav = make_piece_list(p => p.side === P1 && p.type === "cav")
+const p2_cav = make_piece_list(p => p.side !== P1 && p.type === "cav")
+const p1_inf = make_piece_list(p => p.side === P1 && p.type === "inf")
+const p2_inf = make_piece_list(p => p.side !== P1 && p.type === "inf")
+const p1_det = make_piece_list(p => p.side === P1 && p.type === "det")
+const p2_det = make_piece_list(p => p.side !== P1 && p.type === "det")
+const p1_corps = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav"))
+const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav"))
+const p1_units = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
+const p2_units = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
+
+function friendly_hqs() { return (game.active === P1) ? p1_hqs : p2_hqs }
+function enemy_hqs() { return (game.active !== P1) ? p1_hqs : p2_hqs }
+function friendly_cavalry_corps() { return (game.active === P1) ? p1_cav : p2_cav }
+function enemy_cavalry_corps() { return (game.active !== P1) ? p1_cav : p2_cavalry_corps }
+function friendly_infantry_corps() { return (game.active === P1) ? p1_inf : p2_inf }
+function enemy_infantry_corps() { return (game.active !== P1) ? p1_inf : p2_inf }
+function friendly_detachments() { return (game.active === P1) ? p1_det : p2_det }
+function enemy_detachments() { return (game.active !== P1) ? p1_det : p2_det }
+function friendly_corps() { return (game.active === P1) ? p1_corps : p2_corps }
+function enemy_corps() { return (game.active !== P1) ? p1_corps : p2_corps }
+function friendly_units() { return (game.active === P1) ? p1_units : p2_units }
+function enemy_units() { return (game.active !== P1) ? p1_units : p2_units }
+
+function set_piece_hex(p, hex) {
+	game.hex[p] = hex
+}
+
+function set_piece_mode(p, mode) {
+	game.mode[p] = mode
+}
+
+function piece_hex(p) {
+	return game.hex[p]
+}
+
+function piece_mode(p) {
+	return game.mode[p]
+}
+
+// === ZONE OF CONTROL / INFLUENCE ===
+
+var zoc_valid = false
+var p1_zoc = new Array(data.map.rows * 100).fill(0)
+var p1_zoi = new Array(data.map.rows * 100).fill(0)
+var p2_zoc = new Array(data.map.rows * 100).fill(0)
+var p2_zoi = new Array(data.map.rows * 100).fill(0)
+
+function is_friendly_zoc(x) { return game.active === P1 ? p1_zoc[x] : p2_zoc[x] }
+function is_friendly_zoi(x) { return game.active === P1 ? p1_zoi[x] : p2_zoi[x] }
+function is_enemy_zoc(x) { return game.active !== P1 ? p1_zoc[x] : p2_zoc[x] }
+function is_enemy_zoi(x) { return game.active !== P1 ? p1_zoi[x] : p2_zoi[x] }
+
+function update_zoc_imp(zoc, zoi, units) {
+	zoc.fill(0)
+	zoi.fill(0)
+	for (let p of units) {
+		for_each_adjacent(piece_hex(p), x => {
+			// TODO: river
+			zoc[x - 1000] = 1
+			for_each_adjacent(x, y => {
+				// TODO: bridge
+				zoi[y - 1000] = 1
+			})
+		})
+	}
+}
+
+function update_zoc() {
+	if (!zoc_valid) {
+		zoc_valid = true
+		update_zoc_imp(p1_zoc, p1_zoi, p1_units)
+		update_zoc_imp(p2_zoc, p2_zoi, p2_units)
+	}
+}
+
+function is_not_in_enemy_zoc_or_zoi(p) {
+	let x = piece_hex(p)
+	return !is_enemy_zoc(x) && !is_enemy_zoi(x)
+}
 
 function is_map_hex(row, col) {
 	return row >= 10 && row <= 40 && col >= 0 && col <= 41
@@ -84,6 +162,134 @@ function for_each_adjacent(hex, fn) {
 	}
 }
 
+function prompt(str) {
+	view.prompt = str
+}
+
+// === === COMMAND PHASE === ===
+
+function goto_command_phase() {
+	log("Command Phase")
+	log("")
+	goto_hq_placement_step()
+}
+
+function goto_hq_placement_step() {
+	game.active = P1
+	game.state = "hq_placement_step"
+}
+
+function goto_blown_unit_return_step() {
+	game.active = P1
+	game.state = "blown_unit_return_step"
+	game.count = 2
+}
+
+function end_blown_unit_return_step() {
+	if (game.active === P1) {
+		game.active = P2
+		game.count = 2
+	} else {
+		goto_cavalry_corps_recovery_step()
+	}
+}
+
+function goto_cavalry_corps_recovery_step() {
+	game.active = P1
+	game.state = "cavalry_corps_recovery_step"
+	resume_cavalry_corps_recovery_step()
+}
+
+function resume_cavalry_corps_recovery_step() {
+	update_zoc()
+	for (let p of friendly_cavalry_corps())
+		if (is_not_in_enemy_zoc_or_zoi(p))
+			return
+	end_cavalry_corps_recovery_step()
+}
+
+function end_cavalry_corps_recovery_step() {
+	if (game.active === P1) {
+		game.active = P2
+		resume_cavalry_corps_recovery_step()
+	} else {
+		goto_detachment_placement_step()
+	}
+}
+
+function goto_detachment_placement_step() {
+	game.active = P1
+	game.state = "detachment_placement_step"
+	game.count = 0
+}
+
+function end_detachment_placement_step() {
+	if (game.active === P1) {
+		game.active = P2
+		game.count = 0
+	} else {
+		goto_detachment_recall_step()
+	}
+}
+
+function goto_detachment_recall_step() {
+	game.active = P1
+	game.state = "detachment_recall_step"
+}
+
+function end_detachment_recall_step() {
+	if (game.active === P1) {
+		game.active = P2
+	} else {
+		goto_british_line_of_communication_angst()
+	}
+}
+
+function goto_british_line_of_communication_angst() {
+	game.active = P2
+	game.state = "british_line_of_communication_angst"
+}
+
+/*
+
+command phase:
+
+	remove hq
+	place hq
+	return up to 2 blown corps
+	flip exhausted cav to fresh (move to organization?)
+	place 1 detachment per hq
+	recall all, some, or no detachments
+	angst: substitute Hill unit
+
+organization
+	advance formation: flip infantry corps to advance
+	battle formation: flip infantry corps to battle
+	alternate withdrawal: retreat or pass (3 remain)
+
+movement
+	alternate corps movement: move corps or pass
+
+attack
+	alternate corps to attack in zoc or pass
+
+end phase
+	if last turn - victory
+	recall french grand battery
+	new turn
+
+*/
+
+
+// === A: HQ PLACEMENT STEP ===
+
+
+states.hq_placement_step = {
+	prompt() {
+		prompt("HQ Placement")
+	},
+}
+
 states.setup = {
 	prompt() {
 	},
@@ -97,12 +303,12 @@ states.edit_town = {
 
 // === SETUP ===
 
-function setup_piece(side, name, hex, flip = 0) {
+function setup_piece(side, name, hex, mode = 0) {
 	let id = data.pieces.findIndex(pc => pc.side === side && pc.name === name)
 	if (id < 0)
 		throw new Error("INVALID PIECE NAME: " + name)
-	game.pieces[id] = hex
-	game.flip[id] = flip
+	set_piece_hex(id, hex)
+	set_piece_mode(id, mode)
 }
 
 exports.setup = function (seed, scenario, options) {
@@ -111,12 +317,12 @@ exports.setup = function (seed, scenario, options) {
 		scenario,
 		undo: [],
 		log: [],
-		active: FRENCH,
+		active: P1,
+		state: null,
 		turn: 3,
 		pieces: new Array(piece_count).fill(0),
-		flip: new Array(piece_count).fill(0),
+		mode: new Array(piece_count).fill(0),
 		remain: 0,
-		state: "setup",
 	}
 
 	setup("French", "Napoleon HQ", 1217)
@@ -148,6 +354,8 @@ exports.setup = function (seed, scenario, options) {
 	setup("Prussian", "IV Corps (Bulow)", 3)
 	setup("Prussian", "I Detachment (Lutzow)", 1623)
 
+	goto_command_phase()
+
 	return game
 }
 
@@ -158,8 +366,8 @@ exports.view = function (state, player) {
 		prompt: null,
 		actions: null,
 		log: game.log,
-		pieces: game.pieces,
-		flip: game.flip,
+		hex: game.hex,
+		mode: game.mode,
 	}
 
 	if (game.state === "game_over") {

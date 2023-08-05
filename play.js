@@ -3,8 +3,6 @@
 const last_corps = 22
 const piece_count = 39
 
-const map_w = 42
-const map_h = 31
 const first_hex = 1000
 const last_hex = 4041
 
@@ -108,8 +106,8 @@ function build_hexes() {
 	let hex_dy = 68
 	let hex_r = 62 >> 1
 
-	for (let y = 0; y < map_h; ++y) {
-		for (let x = 0; x < map_w; ++x) {
+	for (let y = 0; y < data.map.rows; ++y) {
+		for (let x = 0; x < data.map.cols; ++x) {
 			let hex_id = first_hex + 100 * y + x
 			let hex_x = ui.hex_x[hex_id] = Math.floor(xoff + hex_dx * (x + (y & 1) * 0.5 + 0.5))
 			let hex_y = ui.hex_y[hex_id] = Math.floor(yoff - hex_dy * 3 / 4 * y + hex_dy/2)
@@ -170,8 +168,8 @@ function find_hex_side(a, b) {
 function on_update() {
 	ui.stack.fill(0)
 
-	for (let row = 0; row < map_h; ++row) {
-		for (let col = 0; col < map_w; ++col) {
+	for (let row = 0; row < data.map.rows; ++row) {
+		for (let col = 0; col < data.map.cols; ++col) {
 			let id = first_hex + row * 100 + col
 			ui.hexes[id].classList.toggle("action", is_action("hex", id))
 		}
@@ -181,7 +179,7 @@ function on_update() {
 		let hex = view.pieces[id]
 		if (hex >= first_hex) {
 			ui.pieces[id].classList.remove("hide")
-			ui.pieces[id].classList.toggle("flip", !!view.flip[id])
+			ui.pieces[id].classList.toggle("flip", !!view.mode[id])
 			let x = ui.hex_x[hex] - ui.stack[hex] * 18
 			let y = ui.hex_y[hex] + ui.stack[hex] * 12
 			ui.stack[hex] += 1
