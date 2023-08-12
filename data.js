@@ -171,7 +171,7 @@ data.pieces = [
 	// 13
 	{ side: "Anglo", type: "inf", stars: 2, mp1: 4, mp2: 1, name: "I Corps (Orange)" },
 	{ side: "Anglo", type: "inf", stars: 2, mp1: 4, mp2: 1, name: "Reserve Corps (Wellington)" },
-	{ side: "Anglo", type: "inf", stars: 2, mp1: 4, mp2: 1, name: "II Corps (Hill)" },
+	{ side: "Anglo", type: "inf", stars: 2, mp1: 4, mp2: 1, name: "II Corps (Hill**)" },
 	{ side: "Anglo", type: "cav", stars: 1, mp1: 6, mp2: 4, name: "Cav Corps (Uxbridge)" },
 	{ side: "Anglo", type: "inf", stars: 1, mp1: 4, mp2: 1, name: "II Corps (Hill*)" },
 
@@ -183,7 +183,7 @@ data.pieces = [
 	{ side: "Prussian", type: "cav", stars: 0, mp1: 6, mp2: 4, name: "Cav Corps (Gneisenau)" },
 
 	// 23
-	{ side: "French", type: "det", stars: 0, parent: 5, name: "I Detachment (Jaquinot)" },
+	{ side: "French", type: "det", stars: 0, parent: 5, name: "I Detachment (Jacquinot)" },
 	{ side: "French", type: "det", stars: 0, parent: 6, name: "II Detachment (Pire)" },
 	{ side: "French", type: "det", stars: 2, parent: 0, name: "Old Guard" },
 	{ side: "French", type: "det", stars: 0, parent: 10, name: "Res Cav Detachment (Pajol)" },
@@ -192,7 +192,7 @@ data.pieces = [
 
 	{ side: "Anglo", type: "det", stars: 0, parent: 13, name: "I Detachment (Perponcher)" },
 	{ side: "Anglo", type: "det", stars: 0, parent: 14, name: "Res Detachment (KGL)" },
-	{ side: "Anglo", type: "det", stars: 0, parent: 15, name: "II Detachment (Frederick)" }, // Hill * or ** ?
+	{ side: "Anglo", type: "det", stars: 0, parent: [15,17], name: "II Detachment (Frederick)" }, // Hill * or ** ?
 	{ side: "Anglo", type: "det", stars: 0, parent: 16, name: "Cav Detachment (Collaert)" },
 
 	{ side: "Prussian", type: "det", stars: 0, parent: 18, name: "I Detachment (Steinmetz)" },

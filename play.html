@@ -21,16 +21,39 @@ main {
 #mapwrap {
 	margin: 0 auto;
 	width: 2550px;
-	height: 1650px;
-	box-shadow: 0 0 8px #0008;
+	height: 1900px;
 }
 
 #map {
+	position: absolute;
+	width: 2550px;
+	height: 1900px;
+}
+
+#board, #tracks, #hexes, #pieces {
+	position: absolute;
+}
+
+#board {
+	top: 0px;
+	left: 0px;
 	width: 2550px;
 	height: 1650px;
-	background-color: white;
+	background-color: #803a3b;
 	background-image: url(map75.png);
 	background-size: 2550px 1650px;
+	box-shadow: 0 0 8px #0008;
+}
+
+#tracks {
+	top: 1650px;
+	left: 0px;
+	width: 600px;
+	height: 250px;
+	background-color: #d0c5b1;
+	background-size: 600px 250px;
+	background-image: url(tracks75.png);
+	box-shadow: 0 0 8px #0008;
 }
 
 #hexes, #pieces { position: absolute }
@@ -87,7 +110,6 @@ main {
 	background-size: 84px auto;
 	width: 42px;
 	height: 42px;
-	border-radius: 6px;
 }
 
 .small {
@@ -95,7 +117,6 @@ main {
 	background-size: 68px auto;
 	width: 34px;
 	height: 34px;
-	border-radius: 3px;
 }
 
 .large, .small {
@@ -104,24 +125,32 @@ main {
 	box-shadow: 0 0 0 1px #444, 0 0 4px #0008;
 }
 
+.marker { border-color: hsl(199,65%,85%) hsl(199,55%,50%) hsl(199,55%,50%) hsl(199,65%,85%) }
 .large.french, .small.french { border-color: hsl(199,85%,90%) hsl(199,75%,70%) hsl(199,75%,70%) hsl(199,85%,90%) }
 .large.anglo, .small.anglo { border-color: hsl(0,0%,90%) hsl(0,0%,70%) hsl(0,0%,70%) hsl(0,0%,90%) }
 .large.prussian, .small.prussian { border-color: hsl(202,10%,70%) hsl(202,10%,50%) hsl(202,10%,50%) hsl(202,10%,70%) }
 
-.large.french { background-image: url(sheet_french1_75.png) }
-.large.anglo { background-image: url(sheet_anglo1_75.png) }
-.large.prussian { background-image: url(sheet_prussian1_75.png) }
-.small.french { background-image: url(sheet_french2_75.png) }
-.small.anglo { background-image: url(sheet_anglo2_75.png) }
-.small.prussian { background-image: url(sheet_prussian2_75.png) }
+.marker.turn { background-image: url(images.2x/game_turn.png) }
+.marker.turn.rain { background-image: url(images.2x/rain.png) }
+.marker.remain { background-image: url(images.2x/move_attacks_remaining.png) }
+.marker.remain.p10 { background-image: url(images.2x/move_attacks_remaining_10.png) }
+
+.large.french { background-image: url(images.1x/sheet_french1.png) }
+.large.anglo { background-image: url(images.1x/sheet_anglo1.png) }
+.large.prussian { background-image: url(images.1x/sheet_prussian1.png) }
+.large.marker { background-image: url(images.1x/sheet_misc.png) }
+.small.french { background-image: url(images.1x/sheet_french2.png) }
+.small.anglo { background-image: url(images.1x/sheet_anglo2.png) }
+.small.prussian { background-image: url(images.1x/sheet_prussian2.png) }
 
 @media (min-resolution:97dpi) {
-.large.french { background-image: url(sheet_french1_150.png) }
-.large.anglo { background-image: url(sheet_anglo1_150.png) }
-.large.prussian { background-image: url(sheet_prussian1_150.png) }
-.small.french { background-image: url(sheet_french2_150.png) }
-.small.anglo { background-image: url(sheet_anglo2_150.png) }
-.small.prussian { background-image: url(sheet_prussian2_150.png) }
+.large.french { background-image: url(images.2x/sheet_french1.png) }
+.large.anglo { background-image: url(images.2x/sheet_anglo1.png) }
+.large.prussian { background-image: url(images.2x/sheet_prussian1.png) }
+.large.marker { background-image: url(images.2x/sheet_misc.png) }
+.small.french { background-image: url(images.2x/sheet_french2.png) }
+.small.anglo { background-image: url(images.2x/sheet_anglo2.png) }
+.small.prussian { background-image: url(images.2x/sheet_prussian2.png) }
 }
 
 .large.y1 { background-position: -0px -0px }
@@ -209,10 +238,16 @@ main {
 </aside>
 
 <main>
+
 <div id="mapwrap">
 <div id="map">
+<div id="board"></div>
+<div id="tracks"></div>
 <div id="hexes"></div>
 <div id="pieces">
+
+<div id="marker_turn" class="marker large y1" style="top:1660px;left:25px"></div>
+<div id="marker_remain" class="marker large y3" style="top:1837px;left:109px"></div>
 
 <div id="french_hq_1" class="french large y1"></div>
 <div id="french_hq_2" class="french large y2"></div>

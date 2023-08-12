@@ -8,7 +8,7 @@ const P2 = COALITION
 
 exports.roles = [ P1, P2 ]
 
-exports.scenarios = [ "June 16-18", "June 15-18" ]
+exports.scenarios = [ "June 16", "June 15", "June 15 (no special rules)" ]
 
 const data = require("./data")
 
@@ -16,12 +16,10 @@ var game = null
 var view = null
 var states = {}
 
-const OPEN = 0
-const TOWN = 1
-const STREAM = 2
-
-const OLD_GUARD = 25
-const GRAND_BATTERY = 28
+const OLD_GUARD = data.pieces.findIndex(pc => pc.name === "Old Guard")
+const GRAND_BATTERY = data.pieces.findIndex(pc => pc.name === "Grand Battery")
+const HILL_1 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill*)")
+const HILL_2 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill**)")
 
 function make_piece_list(f) {
 	let list = []
@@ -58,45 +56,77 @@ function friendly_units() { return (game.active === P1) ? p1_units : p2_units }
 function enemy_units() { return (game.active !== P1) ? p1_units : p2_units }
 
 function set_piece_hex(p, hex) {
-	game.hex[p] = hex
+	game.pieces[p] &= 1
+	game.pieces[p] |= hex << 1
 }
 
 function set_piece_mode(p, mode) {
-	game.mode[p] = mode
+	game.pieces[p] &= ~1
+	game.pieces[p] |= mode
 }
 
 function piece_hex(p) {
-	return game.hex[p]
+	return game.pieces[p] >> 1
 }
 
 function piece_mode(p) {
-	return game.mode[p]
+	return game.pieces[p] & 1
+}
+
+const data_rivers = []
+const data_bridges = []
+
+for (let [a, b] of data.map.rivers) {
+	set_add(data_rivers, a * 10000 + b)
+	set_add(data_rivers, b * 10000 + a)
+}
+
+for (let [a, b] of data.map.bridges) {
+	set_delete(data_rivers, a * 10000 + b)
+	set_delete(data_rivers, b * 10000 + a)
+	set_add(data_bridges, a * 10000 + b)
+	set_add(data_bridges, b * 10000 + a)
+}
+
+function is_river(a, b) {
+	return set_has(data_rivers, a * 10000 + b)
+}
+
+function is_bridge(a, b) {
+	return set_has(data_bridges, a * 10000 + b)
 }
 
 // === ZONE OF CONTROL / INFLUENCE ===
 
 var zoc_valid = false
-var p1_zoc = new Array(data.map.rows * 100).fill(0)
-var p1_zoi = new Array(data.map.rows * 100).fill(0)
-var p2_zoc = new Array(data.map.rows * 100).fill(0)
-var p2_zoi = new Array(data.map.rows * 100).fill(0)
+var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
-function is_friendly_zoc(x) { return game.active === P1 ? p1_zoc[x] : p2_zoc[x] }
-function is_friendly_zoi(x) { return game.active === P1 ? p1_zoi[x] : p2_zoi[x] }
-function is_enemy_zoc(x) { return game.active !== P1 ? p1_zoc[x] : p2_zoc[x] }
-function is_enemy_zoi(x) { return game.active !== P1 ? p1_zoi[x] : p2_zoi[x] }
+function is_friendly_zoc(x) { return game.active === P1 ? zoc_cache[x] & 1 : zoc_cache[x] & 4 }
+function is_friendly_zoi(x) { return game.active === P1 ? zoc_cache[x] & 2 : zoc_cache[x] & 8 }
+function is_friendly_zoc_zoi(x) { return game.active === P1 ? zoc_cache[x] & 3 : zoc_cache[x] & 12 }
+function is_enemy_zoc(x) { return game.active !== P1 ? zoc_cache[x] & 1 : zoc_cache[x] & 4 }
+function is_enemy_zoi(x) { return game.active !== P1 ? zoc_cache[x] & 2 : zoc_cache[x] & 8 }
+function is_enemy_zoc_zoi(x) { return game.active !== P1 ? zoc_cache[x] & 3 : zoc_cache[x] & 12 }
 
 function update_zoc_imp(zoc, zoi, units) {
-	zoc.fill(0)
-	zoi.fill(0)
+	zoc_cache.fill(0)
 	for (let p of units) {
-		for_each_adjacent(piece_hex(p), x => {
-			// TODO: river
-			zoc[x - 1000] = 1
-			for_each_adjacent(x, y => {
-				// TODO: bridge
-				zoi[y - 1000] = 1
-			})
+		let a = piece_hex(p)
+		let aa = a - 1000
+		if (zoc_cache[aa] & zoc)
+			continue
+		zoc_cache[aa] = zoc | zoi
+		for_each_adjacent(a, b => {
+			let bb = b - 1000
+			if (!(zoc_cache[bb] & zoc) && !is_river(a, b)) {
+				zoc_cache[bb] |= zoc
+				for_each_adjacent(b, c => {
+					let cc = c - 1000
+					if (!is_bridge(b, c)) {
+						zoc_cache[cc] |= zoi
+					}
+				})
+			}
 		})
 	}
 }
@@ -104,14 +134,24 @@ function update_zoc_imp(zoc, zoi, units) {
 function update_zoc() {
 	if (!zoc_valid) {
 		zoc_valid = true
-		update_zoc_imp(p1_zoc, p1_zoi, p1_units)
-		update_zoc_imp(p2_zoc, p2_zoi, p2_units)
+		update_zoc_imp(1, 2, p1_units)
+		update_zoc_imp(4, 8, p2_units)
 	}
 }
 
-function is_not_in_enemy_zoc_or_zoi(p) {
+function piece_is_not_in_enemy_zoc_or_zoi(p) {
 	let x = piece_hex(p)
-	return !is_enemy_zoc(x) && !is_enemy_zoi(x)
+	return is_map_hex(x) && !is_enemy_zoc_zoi(x)
+}
+
+function piece_is_not_in_enemy_zoc(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && !is_enemy_zoc(x)
+}
+
+function piece_is_in_enemy_zoc(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && is_enemy_zoc(x)
 }
 
 function is_map_hex(row, col) {
@@ -162,98 +202,19 @@ function for_each_adjacent(hex, fn) {
 	}
 }
 
+function set_next_player() {
+	game.active = (game.active === P1) ? P2 : P1
+}
+
 function prompt(str) {
 	view.prompt = str
 }
 
-// === === COMMAND PHASE === ===
-
-function goto_command_phase() {
-	log("Command Phase")
-	log("")
-	goto_hq_placement_step()
-}
-
-function goto_hq_placement_step() {
-	game.active = P1
-	game.state = "hq_placement_step"
-}
-
-function goto_blown_unit_return_step() {
-	game.active = P1
-	game.state = "blown_unit_return_step"
-	game.count = 2
-}
-
-function end_blown_unit_return_step() {
-	if (game.active === P1) {
-		game.active = P2
-		game.count = 2
-	} else {
-		goto_cavalry_corps_recovery_step()
-	}
-}
-
-function goto_cavalry_corps_recovery_step() {
-	game.active = P1
-	game.state = "cavalry_corps_recovery_step"
-	resume_cavalry_corps_recovery_step()
-}
-
-function resume_cavalry_corps_recovery_step() {
-	update_zoc()
-	for (let p of friendly_cavalry_corps())
-		if (is_not_in_enemy_zoc_or_zoi(p))
-			return
-	end_cavalry_corps_recovery_step()
-}
-
-function end_cavalry_corps_recovery_step() {
-	if (game.active === P1) {
-		game.active = P2
-		resume_cavalry_corps_recovery_step()
-	} else {
-		goto_detachment_placement_step()
-	}
-}
-
-function goto_detachment_placement_step() {
-	game.active = P1
-	game.state = "detachment_placement_step"
-	game.count = 0
-}
-
-function end_detachment_placement_step() {
-	if (game.active === P1) {
-		game.active = P2
-		game.count = 0
-	} else {
-		goto_detachment_recall_step()
-	}
-}
-
-function goto_detachment_recall_step() {
-	game.active = P1
-	game.state = "detachment_recall_step"
-}
-
-function end_detachment_recall_step() {
-	if (game.active === P1) {
-		game.active = P2
-	} else {
-		goto_british_line_of_communication_angst()
-	}
-}
-
-function goto_british_line_of_communication_angst() {
-	game.active = P2
-	game.state = "british_line_of_communication_angst"
-}
+// === SEQUENCE OF PLAY ===
 
 /*
 
 command phase:
-
 	remove hq
 	place hq
 	return up to 2 blown corps
@@ -280,25 +241,372 @@ end phase
 
 */
 
+// === === COMMAND PHASE === ===
+
+function goto_command_phase() {
+	log("Command Phase")
+	log("")
+	goto_hq_placement_step()
+}
 
 // === A: HQ PLACEMENT STEP ===
 
+function goto_hq_placement_step() {
+	game.active = P1
+	game.state = "hq_placement_step"
+}
+
+function end_hq_placement_step() {
+	if (game.active === P1)
+		game.active = P2
+	else
+		goto_blown_unit_return_step()
+}
 
 states.hq_placement_step = {
 	prompt() {
-		prompt("HQ Placement")
+		prompt("HQ Placement Step.")
+		view.actions.next = 1
+	},
+	next() {
+		end_hq_placement_step()
 	},
 }
 
-states.setup = {
+// === B: BLOWN UNIT RETURN STEP ===
+
+function goto_blown_unit_return_step() {
+	game.active = P1
+	game.state = "blown_unit_return_step"
+	game.count = 2
+}
+
+function end_blown_unit_return_step() {
+	if (game.active === P1) {
+		game.active = P2
+		game.count = 2
+	} else {
+		goto_cavalry_corps_recovery_step()
+	}
+}
+
+states.blown_unit_return_step = {
 	prompt() {
+		prompt("Blown Unit Return Step.")
+		view.actions.next = 1
+	},
+	next() {
+		end_blown_unit_return_step()
 	},
 }
 
-states.edit_town = {
+// === C: CAVALRY CORPS RECOVERY STEP ===
+
+// TODO: merge with steps F and G to save time
+
+function goto_cavalry_corps_recovery_step() {
+	game.active = P1
+	game.state = "cavalry_corps_recovery_step"
+	resume_cavalry_corps_recovery_step()
+}
+
+function resume_cavalry_corps_recovery_step() {
+	update_zoc()
+	for (let p of friendly_cavalry_corps())
+		if (piece_mode(p) && piece_is_not_in_enemy_zoc_or_zoi(p))
+			return
+	end_cavalry_corps_recovery_step()
+}
+
+function end_cavalry_corps_recovery_step() {
+	if (game.active === P1) {
+		game.active = P2
+		resume_cavalry_corps_recovery_step()
+	} else {
+		goto_detachment_placement_step()
+	}
+}
+
+states.cavalry_corps_recovery_step = {
 	prompt() {
-		view.roads = data.map.roads
+		prompt("Cavalry Corps Recovery Step.")
+		for (let p of friendly_cavalry_corps())
+			if (piece_mode(p) && piece_is_not_in_enemy_zoc_or_zoi(p))
+				gen_action_piece(p)
 	},
+	piece(p) {
+		set_piece_mode(p, 0)
+		resume_cavalry_corps_recovery_step()
+	},
+}
+
+// === D: DETACHMENT PLACEMENT STEP ===
+
+function goto_detachment_placement_step() {
+	game.active = P1
+	game.state = "detachment_placement_step"
+	game.count = 0
+}
+
+function end_detachment_placement_step() {
+	if (game.active === P1) {
+		game.active = P2
+		game.count = 0
+	} else {
+		goto_detachment_recall_step()
+	}
+}
+
+states.detachment_placement_step = {
+	prompt() {
+		prompt("Detachment Placement Step.")
+		view.actions.next = 1
+	},
+	next() {
+		end_detachment_placement_step()
+	},
+}
+
+// === E: DETACHMENT RECALL STEP ===
+
+function goto_detachment_recall_step() {
+	game.active = P1
+	game.state = "detachment_recall_step"
+}
+
+function end_detachment_recall_step() {
+	if (game.active === P1) {
+		game.active = P2
+	} else {
+		goto_british_line_of_communication_angst()
+	}
+}
+
+states.detachment_recall_step = {
+	prompt() {
+		prompt("Detachment Recall Step.")
+		view.actions.next = 1
+	},
+	next() {
+		end_detachment_recall_step()
+	},
+}
+
+function goto_british_line_of_communication_angst() {
+	game.active = P2
+	game.state = "british_line_of_communication_angst_1"
+	// TODO
+	goto_advance_formation()
+}
+
+states.british_line_of_communication_angst_1 = {
+	prompt() {
+		prompt("British Line of Communication Angst.")
+		gen_action_piece(HILL_1)
+	},
+	piece(p) {
+		set_piece_hex(HILL_2, piece_hex(HILL_1))
+		set_piece_mode(HILL_2, piece_mode(HILL_1))
+		set_piece_hex(HILL_1, 0)
+		set_piece_mode(HILL_1, 0)
+		goto_advance_formation()
+	},
+}
+
+states.british_line_of_communication_angst_2 = {
+	prompt() {
+		prompt("British Line of Communication Angst.")
+		gen_action_piece(HILL_2)
+	},
+	piece(p) {
+		set_piece_hex(HILL_1, piece_hex(HILL_2))
+		set_piece_mode(HILL_1, piece_mode(HILL_2))
+		set_piece_hex(HILL_2, 0)
+		set_piece_mode(HILL_2, 0)
+		goto_advance_formation()
+	},
+}
+
+// === === ORGANIZATION PHASE === ===
+
+// === F: ADVANCE FORMATION ===
+// === G: BATTLE FORMATION ===
+
+// NOTE: merged step F and step G to save time
+// TODO: move step C here
+
+function goto_advance_formation() {
+	game.active = P1
+	resume_advance_formation()
+}
+
+function resume_advance_formation() {
+	game.state = "advance_formation"
+	update_zoc()
+	for (let p of friendly_infantry_corps())
+		if (piece_mode(p) && piece_is_not_in_enemy_zoc(p))
+			return
+	resume_battle_formation()
+}
+
+function resume_battle_formation() {
+	game.state = "battle_formation"
+	update_zoc()
+	for (let p of friendly_infantry_corps())
+		if (piece_mode(p) && piece_is_in_enemy_zoc(p))
+			return
+	end_battle_formation()
+}
+
+function end_battle_formation() {
+	if (game.active === P1) {
+		game.active = P2
+		resume_advance_formation()
+	} else {
+		goto_withdrawal()
+	}
+}
+
+states.advance_formation = {
+	prompt() {
+		prompt("Advance Formation.")
+		for (let p of friendly_infantry_corps())
+			if (piece_mode(p) && piece_is_not_in_enemy_zoc(p))
+				gen_action_piece(p)
+	},
+	piece(p) {
+		set_piece_mode(p, 0)
+		resume_advance_formation()
+	},
+}
+
+states.battle_formation = {
+	prompt() {
+		prompt("Battle Formation.")
+		for (let p of friendly_infantry_corps())
+			if (piece_mode(p) && piece_is_in_enemy_zoc(p))
+				gen_action_piece(p)
+	},
+	piece(p) {
+		set_piece_mode(p, 0)
+		resume_battle_formation()
+	},
+}
+
+// === H: WITHDRAWAL ===
+
+function goto_withdrawal() {
+	game.active = P1
+	game.state = "withdrawal"
+	game.remain = 0
+}
+
+function next_withdrawal() {
+	game.state = "withdrawal"
+	if (game.remain === 0)
+		set_next_player()
+	else if (--game.remain === 0)
+		end_withdrawal()
+}
+
+function end_withdrawal() {
+	goto_movement_phase()
+}
+
+states.withdrawal = {
+	prompt() {
+		prompt("Withdrawal.")
+		view.actions.pass = 1
+	},
+	piece(p) {
+		push_undo()
+		game.who = p
+		game.state = "withdrawal_to"
+	},
+	pass() {
+		clear_undo()
+		if (game.remain > 0) {
+			end_withdrawal()
+		} else {
+			set_next_player()
+			game.remain = 3
+		}
+	},
+}
+
+states.withdrawal_to = {
+	prompt() {
+		prompt("Withdrawal to.")
+		view.actions.next = 1
+	},
+	next() {
+		next_withdrawal()
+	},
+}
+
+// === === MOVEMENT PHASE === ===
+
+function goto_movement_phase() {
+	log("")
+	log("Movement Phase")
+	log("")
+	game.active = P1
+	game.state = "movement"
+	game.remain = 0
+}
+
+function next_movement() {
+	game.state = "movement"
+	if (game.remain === 0)
+		set_next_player()
+	else if (--game.remain === 0)
+		end_movement()
+}
+
+function end_movement() {
+	goto_attack_phase()
+}
+
+states.movement = {
+	prompt() {
+		prompt("Movement.")
+		view.actions.pass = 1
+	},
+	piece(p) {
+		push_undo()
+		game.who = p
+		game.state = "movement_to"
+	},
+	pass() {
+		clear_undo()
+		if (game.remain > 0) {
+			end_movement()
+		} else {
+			set_next_player()
+			game.remain = roll_die()
+		}
+	},
+}
+
+states.movement_to = {
+	prompt() {
+		prompt("Movement to.")
+		view.actions.next = 1
+	},
+	next() {
+		next_movement()
+	},
+}
+
+// === === ATTACK PHASE === ===
+
+function goto_attack_phase() {
+	log("")
+	log("Attack Phase")
+	log("")
+	game.active = P1
+	game.state = "attack"
+	game.remain = 0
 }
 
 // === SETUP ===
@@ -311,48 +619,91 @@ function setup_piece(side, name, hex, mode = 0) {
 	set_piece_mode(id, mode)
 }
 
+function setup_june_15() {
+	game.turn = 1
+
+	setup_piece("French", "Napoleon HQ", 1017)
+	setup_piece("French", "II Corps (Reille)", 1)
+	setup_piece("French", "I Corps (d'Erlon)", 1)
+	setup_piece("French", "III Corps (Vandamme)", 1)
+	setup_piece("French", "VI Corps (Lobau)", 1)
+	setup_piece("French", "Guard Corps (Drouot)", 1)
+	setup_piece("French", "Guard Cav Corps (Guyot)", 1)
+	setup_piece("French", "Res Cav Corps (Grouchy)", 1)
+	setup_piece("French", "IV Corps (Gerard)", 1)
+	setup_piece("French", "Grouchy HQ", 2)
+	setup_piece("French", "Ney HQ", 2)
+
+	setup_piece("Anglo", "Wellington HQ", 3715)
+	setup_piece("Anglo", "Reserve Corps (Wellington)", 3715)
+	setup_piece("Anglo", "I Corps (Orange)", 3002)
+	setup_piece("Anglo", "II Corps (Hill*)", 3)
+	setup_piece("Anglo", "Cav Corps (Uxbridge)", 4)
+	setup_piece("Anglo", "Cav Detachment (Collaert)", 1211)
+	setup_piece("Anglo", "I Detachment (Perponcher)", 2618)
+
+	setup_piece("Prussian", "Blucher HQ", 1737)
+	setup_piece("Prussian", "Cav Corps (Gneisenau)", 1737)
+	setup_piece("Prussian", "I Corps (Ziethen)", 1716)
+	setup_piece("Prussian", "II Corps (Pirch)", 2840)
+	setup_piece("Prussian", "III Corps (Thielmann)", 1340)
+	setup_piece("Prussian", "IV Corps (Bulow)", 3)
+	setup_piece("Prussian", "I Detachment (Steinmetz)", 1215)
+	setup_piece("Prussian", "I Detachment (Pirch)", 1217)
+	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
+}
+
+function setup_june_16() {
+	game.turn = 3
+
+	setup_piece("French", "Napoleon HQ", 1217)
+	setup_piece("French", "Guard Corps (Drouot)", 1217)
+	setup_piece("French", "Grouchy HQ", 1621)
+	setup_piece("French", "Ney HQ", 2218)
+	setup_piece("French", "II Corps (Reille)", 2218)
+	setup_piece("French", "I Corps (d'Erlon)", 1617)
+	setup_piece("French", "III Corps (Vandamme)", 1721)
+	setup_piece("French", "IV Corps (Gerard)", 1221)
+	setup_piece("French", "VI Corps (Lobau)", 1117)
+	setup_piece("French", "Guard Cav Corps (Guyot)", 2317)
+	setup_piece("French", "Res Cav Corps (Grouchy)", 1822)
+	setup_piece("French", "I Detachment (Jacquinot)", 1314)
+
+	setup_piece("Anglo", "Wellington HQ", 2818, 1)
+	setup_piece("Anglo", "Reserve Corps (Wellington)", 3715)
+	setup_piece("Anglo", "I Corps (Orange)", 3002)
+	setup_piece("Anglo", "II Corps (Hill*)", 3)
+	setup_piece("Anglo", "Cav Corps (Uxbridge)", 4)
+	setup_piece("Anglo", "Cav Detachment (Collaert)", 1211)
+	setup_piece("Anglo", "I Detachment (Perponcher)", 2618)
+
+	setup_piece("Prussian", "Blucher HQ", 2324, 1)
+	setup_piece("Prussian", "Cav Corps (Gneisenau)", 2324)
+	setup_piece("Prussian", "I Corps (Ziethen)", 1922, 1)
+	setup_piece("Prussian", "II Corps (Pirch)", 1928)
+	setup_piece("Prussian", "III Corps (Thielmann)", 1737)
+	setup_piece("Prussian", "IV Corps (Bulow)", 3)
+	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
+}
+
 exports.setup = function (seed, scenario, options) {
 	game = {
 		seed,
-		scenario,
-		undo: [],
 		log: [],
+		undo: [],
 		active: P1,
 		state: null,
 		turn: 3,
-		pieces: new Array(piece_count).fill(0),
-		mode: new Array(piece_count).fill(0),
 		remain: 0,
+		pieces: new Array(data.pieces.length).fill(0),
+		who: -1,
+		count: 0,
 	}
 
-	setup("French", "Napoleon HQ", 1217)
-	setup("French", "Guard Corps (Drouot)", 1217)
-	setup("French", "Grouchy HQ", 1621)
-	setup("French", "Ney HQ", 2218)
-	setup("French", "II Corps (Reille)", 2218)
-	setup("French", "I Corps (d'Erlon)", 1617)
-	setup("French", "III Corps (Vandamme)", 1721)
-	setup("French", "IV Corps (Gerard)", 1221)
-	setup("French", "VI Corps (Lobau)", 1117)
-	setup("French", "Guard Cav Corps (Guyot)", 2317)
-	setup("French", "Res Cav Corps (Grouchy)", 1822)
-	setup("French", "I Detachment (Jacquinot)", 1314)
-
-	setup("Anglo", "Wellington HQ", 2818, 1)
-	setup("Anglo", "Reserve Corps (Wellington)", 3715)
-	setup("Anglo", "I Corps (Orange)", 3002)
-	setup("Anglo", "II Corps (Hill*)", 3)
-	setup("Anglo", "Cav Corps (Uxbridge)", 4)
-	setup("Anglo", "Cav Detachment (Collaert)", 1211)
-	setup("Anglo", "I Detachment (Perponcher)", 2618)
-
-	setup("Prussian", "Blucher HQ", 2324)
-	setup("Prussian", "Cav Corps (Gneisenau)", 2324, 1)
-	setup("Prussian", "I Corps (Ziethen)", 1922, 1)
-	setup("Prussian", "II Corps (Pirch)", 1928)
-	setup("Prussian", "III Corps (Thielmann)", 1737)
-	setup("Prussian", "IV Corps (Bulow)", 3)
-	setup("Prussian", "I Detachment (Lutzow)", 1623)
+	if (scenario === "June 15" || scenario === "June 15 (no special rules)")
+		setup_june_15()
+	else
+		setup_june_16()
 
 	goto_command_phase()
 
@@ -361,13 +712,28 @@ exports.setup = function (seed, scenario, options) {
 
 // === COMMON ===
 
+function gen_action(action, argument) {
+	if (!(action in view.actions))
+		view.actions[action] = []
+	view.actions[action].push(argument)
+}
+
+function gen_action_piece(piece) {
+	gen_action("piece", piece)
+}
+
+function gen_action_hex(hex) {
+	gen_action("hex", hex)
+}
+
 exports.view = function (state, player) {
+	game = state
+
 	view = {
 		prompt: null,
 		actions: null,
 		log: game.log,
-		hex: game.hex,
-		mode: game.mode,
+		pieces: game.pieces,
 	}
 
 	if (game.state === "game_over") {
@@ -379,7 +745,7 @@ exports.view = function (state, player) {
 		view.actions = {}
 		view.who = game.who
 		if (states[game.state])
-			states[game.state].prompt(current)
+			states[game.state].prompt()
 		else
 			view.prompt = "Unknown state: " + game.state
 		if (view.actions.undo === undefined) {
@@ -457,6 +823,10 @@ function random(range) {
 	return (game.seed = game.seed * 200105 % 34359738337) % range
 }
 
+function roll_die() {
+	return random(6) + 1
+}
+
 // Fast deep copy for objects without cycles
 function object_copy(original) {
 	if (Array.isArray(original)) {
@@ -480,5 +850,71 @@ function object_copy(original) {
 				copy[i] = v
 		}
 		return copy
+	}
+}
+
+// Array remove and insert (faster than splice)
+
+function array_remove(array, index) {
+	let n = array.length
+	for (let i = index + 1; i < n; ++i)
+		array[i - 1] = array[i]
+	array.length = n - 1
+}
+
+function array_insert(array, index, item) {
+	for (let i = array.length; i > index; --i)
+		array[i] = array[i - 1]
+	array[index] = item
+}
+
+// Set as plain sorted array
+
+function set_has(set, item) {
+	let a = 0
+	let b = set.length - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = set[m]
+		if (item < x)
+			b = m - 1
+		else if (item > x)
+			a = m + 1
+		else
+			return true
+	}
+	return false
+}
+
+function set_add(set, item) {
+	let a = 0
+	let b = set.length - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = set[m]
+		if (item < x)
+			b = m - 1
+		else if (item > x)
+			a = m + 1
+		else
+			return
+	}
+	array_insert(set, a, item)
+}
+
+function set_delete(set, item) {
+	let a = 0
+	let b = set.length - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = set[m]
+		if (item < x)
+			b = m - 1
+		else if (item > x)
+			a = m + 1
+		else {
+			array_remove(set, m)
+			return
+		}
 	}
 }

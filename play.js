@@ -27,6 +27,10 @@ function set_has(set, item) {
 const FRENCH = "French"
 const COALITION = "Coalition"
 
+const TURN_X = 20 - 70 + 35 + 8
+const TURN_Y = 1745
+const TURN_DX = 70
+
 let ui = {
 	hexes: new Array(last_hex+1).fill(null),
 	sides: new Array((last_hex+1)*3).fill(null),
@@ -176,12 +180,27 @@ function on_update() {
 	}
 
 	for (let id = 0; id < piece_count; ++id) {
-		let hex = view.pieces[id]
+		let hex = view.pieces[id] >> 1
 		if (hex >= first_hex) {
 			ui.pieces[id].classList.remove("hide")
-			ui.pieces[id].classList.toggle("flip", !!view.mode[id])
+			ui.pieces[id].classList.toggle("flip", (view.pieces[id] & 1) === 1)
 			let x = ui.hex_x[hex] - ui.stack[hex] * 18
 			let y = ui.hex_y[hex] + ui.stack[hex] * 12
+			ui.stack[hex] += 1
+			if (id <= last_corps) {
+				x -= (46>>1)
+				y -= (46>>1)
+			} else {
+				x -= (38>>1)
+				y -= (38>>1)
+			}
+			ui.pieces[id].style.top = y + "px"
+			ui.pieces[id].style.left = x + "px"
+		} else if (hex >= 1) {
+			ui.pieces[id].classList.remove("hide")
+			ui.pieces[id].classList.remove("flip")
+			let x = TURN_X + hex * TURN_DX - ui.stack[hex] * 18
+			let y = TURN_Y + ui.stack[hex] * 12
 			ui.stack[hex] += 1
 			if (id <= last_corps) {
 				x -= (46>>1)
@@ -212,6 +231,7 @@ function on_update() {
 	action_button("edit_stream", "Stream")
 	action_button("edit_road", "Road")
 
+	action_button("next", "Next")
 	action_button("pass", "Pass")
 	action_button("undo", "Undo")
 }
