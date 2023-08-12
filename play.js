@@ -92,11 +92,14 @@ function on_focus_hex(evt) {
 	document.getElementById("status").textContent = "Hex " + evt.target.my_name
 }
 
-function on_click_hex(evt) {
-	if (evt.button === 0) {
-		if (send_action('hex', evt.target.my_id))
+function on_focus_piece(evt) {
+	document.getElementById("status").textContent = evt.target.my_name
+}
+
+function on_click_action(evt) {
+	if (evt.button === 0)
+		if (send_action(evt.target.my_action, evt.target.my_id))
 			evt.stopPropagation()
-	}
 }
 
 function toggle_pieces() {
@@ -108,7 +111,7 @@ function build_hexes() {
 	let xoff = 36
 	let hex_dx = 58.67
 	let hex_dy = 68
-	let hex_r = 62 >> 1
+	let hex_r = 56 >> 1
 
 	for (let y = 0; y < data.map.rows; ++y) {
 		for (let x = 0; x < data.map.cols; ++x) {
@@ -120,9 +123,12 @@ function build_hexes() {
 			hex.className = "hex"
 			hex.style.left = (hex_x - hex_r) + "px"
 			hex.style.top = (hex_y - hex_r) + "px"
-			hex.addEventListener("mousedown", on_click_hex)
-			hex.addEventListener("mouseenter", on_focus_hex)
-			hex.addEventListener("mouseleave", on_blur)
+			hex.style.width = (hex_r * 2) + "px"
+			hex.style.height = (hex_r * 2) + "px"
+			hex.onmousedown = on_click_action
+			hex.onmouseenter = on_focus_hex
+			hex.onmouseleave = on_blur
+			hex.my_action = "hex"
 			hex.my_id = hex_id
 			if (data.map.names[hex_id])
 				hex.my_name = String(hex_id) + " (" + data.map.names[hex_id] + ")"
@@ -141,6 +147,15 @@ function build_hexes() {
 				document.getElementById("hexes").appendChild(elt)
 			}
 		}
+	}
+
+	for (let p = 0; p < ui.pieces.length; ++p) {
+		ui.pieces[p].onmousedown = on_click_action
+		ui.pieces[p].onmouseenter = on_focus_piece
+		ui.pieces[p].onmouseleave = on_blur
+		ui.pieces[p].my_action = "piece"
+		ui.pieces[p].my_id = p
+		ui.pieces[p].my_name = data.pieces[p].name
 	}
 }
 
@@ -215,6 +230,7 @@ function on_update() {
 			ui.pieces[id].classList.add("hide")
 		}
 		ui.pieces[id].classList.toggle("action", is_action("piece", id))
+		ui.pieces[id].classList.toggle("selected", view.who === id)
 	}
 
 	if (view.roads) {

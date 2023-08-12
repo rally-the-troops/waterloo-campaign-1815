@@ -63,12 +63,6 @@ main {
 	position: absolute;
 	border-radius: 50%;
 	border: 2px solid transparent;
-	width: 62px;
-	height: 62px;
-}
-
-.hex:hover {
-	border-color: #0008;
 }
 
 .hex.town { background-color: #F006; }
@@ -77,6 +71,13 @@ main {
 
 .hex.action {
 	border: 4px solid #fff6;
+	background-color: #fff2;
+	box-shadow: 0 0 3px #0008;
+	z-index: 100;
+}
+
+.hex.action.stop {
+	background-color: #f002;
 }
 
 .hexside {
@@ -120,9 +121,21 @@ main {
 }
 
 .large, .small {
+	transition-property: top, left;
+	transition-duration: 500ms;
+	transition-timing-function: ease;
 	border-width: 2px;
 	border-style: solid;
 	box-shadow: 0 0 0 1px #444, 0 0 4px #0008;
+}
+
+.large.action, .small.action {
+	box-shadow: 0 0 0 1px #444, 0 0 0 4px white;
+}
+
+.large.selected, .small.selected {
+	box-shadow: 0 0 0 1px #444, 0 0 0 4px yellow;
+	z-index: 101;
 }
 
 .marker { border-color: hsl(199,65%,85%) hsl(199,55%,50%) hsl(199,55%,50%) hsl(199,65%,85%) }
@@ -130,27 +143,22 @@ main {
 .large.anglo, .small.anglo { border-color: hsl(0,0%,90%) hsl(0,0%,70%) hsl(0,0%,70%) hsl(0,0%,90%) }
 .large.prussian, .small.prussian { border-color: hsl(202,10%,70%) hsl(202,10%,50%) hsl(202,10%,50%) hsl(202,10%,70%) }
 
-.marker.turn { background-image: url(images.2x/game_turn.png) }
-.marker.turn.rain { background-image: url(images.2x/rain.png) }
-.marker.remain { background-image: url(images.2x/move_attacks_remaining.png) }
-.marker.remain.p10 { background-image: url(images.2x/move_attacks_remaining_10.png) }
-
-.large.french { background-image: url(images.1x/sheet_french1.png) }
-.large.anglo { background-image: url(images.1x/sheet_anglo1.png) }
-.large.prussian { background-image: url(images.1x/sheet_prussian1.png) }
-.large.marker { background-image: url(images.1x/sheet_misc.png) }
-.small.french { background-image: url(images.1x/sheet_french2.png) }
-.small.anglo { background-image: url(images.1x/sheet_anglo2.png) }
-.small.prussian { background-image: url(images.1x/sheet_prussian2.png) }
+.large.french { background-image: url(sheet_french1_75.png) }
+.large.anglo { background-image: url(sheet_anglo1_75.png) }
+.large.prussian { background-image: url(sheet_prussian1_75.png) }
+.large.marker { background-image: url(sheet_misc_75.png) }
+.small.french { background-image: url(sheet_french2_75.png) }
+.small.anglo { background-image: url(sheet_anglo2_75.png) }
+.small.prussian { background-image: url(sheet_prussian2_75.png) }
 
 @media (min-resolution:97dpi) {
-.large.french { background-image: url(images.2x/sheet_french1.png) }
-.large.anglo { background-image: url(images.2x/sheet_anglo1.png) }
-.large.prussian { background-image: url(images.2x/sheet_prussian1.png) }
-.large.marker { background-image: url(images.2x/sheet_misc.png) }
-.small.french { background-image: url(images.2x/sheet_french2.png) }
-.small.anglo { background-image: url(images.2x/sheet_anglo2.png) }
-.small.prussian { background-image: url(images.2x/sheet_prussian2.png) }
+.large.french { background-image: url(sheet_french1_150.png) }
+.large.anglo { background-image: url(sheet_anglo1_150.png) }
+.large.prussian { background-image: url(sheet_prussian1_150.png) }
+.large.marker { background-image: url(sheet_misc_150.png) }
+.small.french { background-image: url(sheet_french2_150.png) }
+.small.anglo { background-image: url(sheet_anglo2_150.png) }
+.small.prussian { background-image: url(sheet_prussian2_150.png) }
 }
 
 .large.y1 { background-position: -0px -0px }

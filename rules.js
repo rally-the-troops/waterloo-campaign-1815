@@ -12,6 +12,10 @@ exports.scenarios = [ "June 16", "June 15", "June 15 (no special rules)" ]
 
 const data = require("./data")
 
+const { max, abs } = Math
+
+const last_hex = 1000 + (data.map.rows - 1) * 100 + (data.map.cols - 1)
+
 var game = null
 var view = null
 var states = {}
@@ -56,6 +60,7 @@ function friendly_units() { return (game.active === P1) ? p1_units : p2_units }
 function enemy_units() { return (game.active !== P1) ? p1_units : p2_units }
 
 function set_piece_hex(p, hex) {
+	zoc_valid = false
 	game.pieces[p] &= 1
 	game.pieces[p] |= hex << 1
 }
@@ -71,6 +76,40 @@ function piece_hex(p) {
 
 function piece_mode(p) {
 	return game.pieces[p] & 1
+}
+
+function piece_is_cavalry(p) {
+	return data.pieces[p].type === "cav"
+}
+
+function piece_is_infantry(p) {
+	return data.pieces[p].type === "inf"
+}
+
+function piece_movement_allowance(p) {
+	if (piece_mode(p))
+		return data.pieces[p].mp2
+	return data.pieces[p].mp1
+}
+
+function piece_command_range(p) {
+	if (piece_mode(p))
+		return data.pieces[p].range2
+	return data.pieces[p].range1
+}
+
+function is_empty_hex(x) {
+	for (let p = 0; p < data.pieces.length; ++p)
+		if (piece_hex(p) === x)
+			return false
+	return true
+}
+
+function hex_has_any_piece(x, list) {
+	for (let p of list)
+		if (piece_hex(p) === x)
+			return true
+	return false
 }
 
 const data_rivers = []
@@ -96,52 +135,104 @@ function is_bridge(a, b) {
 	return set_has(data_bridges, a * 10000 + b)
 }
 
+function is_stream(x) {
+	return set_has(data.map.streams, x)
+}
+
+const data_roads = []
+for (let row = 0; row < data.map.rows; ++row) {
+	for (let col = 0; col < data.map.cols; ++col) {
+		let x = 1000 + row * 100 + col
+		data_roads[x-1000] = []
+	}
+}
+
+function make_road(id, road, i, d) {
+	let list = []
+	while (i >= 0 && i < road.length) {
+		list.push(road[i])
+		i += d
+	}
+	return list
+}
+
+for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
+	let road = data.map.roads[road_id]
+	for (let k = 0; k < road.length; ++k)
+		data_roads[road[k]-1000].push([road_id, k])
+}
+
+// console.log("ROAD", JSON.stringify(data_roads))
+
+function is_road(x) {
+	return data_roads[x-1000].length > 0
+}
+
 // === ZONE OF CONTROL / INFLUENCE ===
 
 var zoc_valid = false
 var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
-function is_friendly_zoc(x) { return game.active === P1 ? zoc_cache[x] & 1 : zoc_cache[x] & 4 }
-function is_friendly_zoi(x) { return game.active === P1 ? zoc_cache[x] & 2 : zoc_cache[x] & 8 }
-function is_friendly_zoc_zoi(x) { return game.active === P1 ? zoc_cache[x] & 3 : zoc_cache[x] & 12 }
-function is_enemy_zoc(x) { return game.active !== P1 ? zoc_cache[x] & 1 : zoc_cache[x] & 4 }
-function is_enemy_zoi(x) { return game.active !== P1 ? zoc_cache[x] & 2 : zoc_cache[x] & 8 }
-function is_enemy_zoc_zoi(x) { return game.active !== P1 ? zoc_cache[x] & 3 : zoc_cache[x] & 12 }
+// ANY_ZOC=1, CAV_ZOC=2, ANY_ZOI=4, CAV_ZOI=8
+
+function is_p1_zoc(x) { return zoc_cache[x-1000] & (1|2) }
+function is_p1_cav_zoc(x) { return zoc_cache[x-1000] & (2) }
+function is_p1_zoc_or_zoi(x) { return zoc_cache[x-1000] & (1|2|4) }
+function is_p1_zoc_or_cav_zoi(x) { return zoc_cache[x-1000] & (1|2|8) }
+
+function is_p2_zoc(x) { return zoc_cache[x-1000] & (16|32) }
+function is_p2_cav_zoc(x) { return zoc_cache[x-1000] & (32) }
+function is_p2_zoc_or_zoi(x) { return zoc_cache[x-1000] & (16|32|64) }
+function is_p2_zoc_or_cav_zoi(x) { return zoc_cache[x-1000] & (16|32|128) }
+
+function is_friendly_zoc(x) { return game.active === P1 ? is_p1_zoc(x) : is_p2_zoc(x) }
+function is_friendly_zoc_or_zoi(x) { return game.active === P1 ? is_p1_zoc_or_zoi(x) : is_p2_zoc_or_zoi(x) }
+
+function is_enemy_zoc(x) { return game.active !== P1 ? is_p1_zoc(x) : is_p2_zoc(x) }
+function is_enemy_cav_zoc(x) { return game.active !== P1 ? is_p1_cav_zoc(x) : is_p2_cav_zoc(x) }
+function is_enemy_zoc_or_cav_zoi(x) { return game.active !== P1 ? is_p1_zoc_or_cav_zoi(x) : is_p2_zoc_or_cav_zoi(x) }
+function is_enemy_zoc_or_zoi(x) { return game.active !== P1 ? is_p1_zoc_or_zoi(x) : is_p2_zoc_or_zoi(x) }
 
 function update_zoc_imp(zoc, zoi, units) {
-	zoc_cache.fill(0)
 	for (let p of units) {
 		let a = piece_hex(p)
 		let aa = a - 1000
-		if (zoc_cache[aa] & zoc)
-			continue
-		zoc_cache[aa] = zoc | zoi
-		for_each_adjacent(a, b => {
-			let bb = b - 1000
-			if (!(zoc_cache[bb] & zoc) && !is_river(a, b)) {
-				zoc_cache[bb] |= zoc
-				for_each_adjacent(b, c => {
-					let cc = c - 1000
-					if (!is_bridge(b, c)) {
-						zoc_cache[cc] |= zoi
+		if (!(zoc_cache[aa] & zoc)) {
+			zoc_cache[aa] |= zoc
+			for_each_adjacent(a, b => {
+				let bb = b - 1000
+				if (!(zoc_cache[bb] & zoc) && !is_river(a, b)) {
+					zoc_cache[bb] |= zoc
+					if (zoi) {
+						for_each_adjacent(b, c => {
+							let cc = c - 1000
+							if (!is_bridge(b, c)) {
+								zoc_cache[cc] |= zoi
+							}
+						})
 					}
-				})
-			}
-		})
+				}
+			})
+		}
 	}
 }
 
 function update_zoc() {
 	if (!zoc_valid) {
 		zoc_valid = true
-		update_zoc_imp(1, 2, p1_units)
-		update_zoc_imp(4, 8, p2_units)
+		zoc_cache.fill(0)
+		update_zoc_imp(1|2, 4|8, p1_cav)
+		update_zoc_imp(1, 4, p1_inf)
+		update_zoc_imp(1, 0, p1_det)
+		update_zoc_imp(16|32, 64|128, p2_cav)
+		update_zoc_imp(16, 64, p2_inf)
+		update_zoc_imp(16, 0, p2_det)
 	}
 }
 
 function piece_is_not_in_enemy_zoc_or_zoi(p) {
 	let x = piece_hex(p)
-	return is_map_hex(x) && !is_enemy_zoc_zoi(x)
+	return is_map_hex(x) && !is_enemy_zoc_or_zoi(x)
 }
 
 function piece_is_not_in_enemy_zoc(p) {
@@ -149,13 +240,25 @@ function piece_is_not_in_enemy_zoc(p) {
 	return is_map_hex(x) && !is_enemy_zoc(x)
 }
 
+function piece_is_not_in_enemy_cav_zoc(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && !is_enemy_cav_zoc(x)
+}
+
 function piece_is_in_enemy_zoc(p) {
 	let x = piece_hex(p)
 	return is_map_hex(x) && is_enemy_zoc(x)
 }
 
-function is_map_hex(row, col) {
-	return row >= 10 && row <= 40 && col >= 0 && col <= 41
+function piece_is_on_map(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x)
+}
+
+function is_map_hex(x) {
+	if (x >= 1000 && x <= last_hex)
+		return x % 100 <= 41
+	return false
 }
 
 function calc_distance(a, b) {
@@ -171,8 +274,8 @@ function calc_distance(a, b) {
 }
 
 function for_each_adjacent(hex, fn) {
-	let row = hex / 10 | 0
-	let col = hex % 10
+	let row = hex / 100 | 0
+	let col = hex % 100
 	if (col < 41)
 		fn(hex + 1)
 	if (col > 0)
@@ -570,6 +673,17 @@ function end_movement() {
 states.movement = {
 	prompt() {
 		prompt("Movement.")
+
+		update_zoc()
+
+		for (let p of friendly_cavalry_corps())
+			if (piece_is_not_in_enemy_cav_zoc(p))
+				gen_action_piece(p)
+
+		for (let p of friendly_infantry_corps())
+			if (piece_is_not_in_enemy_zoc(p))
+				gen_action_piece(p)
+
 		view.actions.pass = 1
 	},
 	piece(p) {
@@ -590,12 +704,174 @@ states.movement = {
 
 states.movement_to = {
 	prompt() {
-		prompt("Movement to.")
-		view.actions.next = 1
+		prompt("Move " + data.pieces[game.who].name + ".")
+
+		update_zoc()
+
+		gen_move(game.who)
+
+		gen_action_piece(game.who)
 	},
-	next() {
+	piece(p) {
+		pop_undo()
+	},
+	hex(x) {
+		update_zoc()
+
+		set_piece_hex(game.who, x)
+
+		if (is_stream(x))
+			set_piece_mode(game.who, 1)
+
+		if (piece_is_infantry(game.who) && is_enemy_zoc(x))
+			set_piece_mode(game.who, 1)
+
+		// TODO: flip all enemy inf in game.who's zoc
+
+		game.who = -1
+		//game.state = "movement"
 		next_movement()
 	},
+}
+
+// OFF ROAD MOVEMENT SEARCH
+
+function can_move_into(here, next, hq_hex, hq_range, is_cav) {
+	// can't go off-map
+	if (!is_map_hex(next))
+		return false
+
+	// must stay within command hq's range or move closer
+	let here_dist = calc_distance(here, hq_hex)
+	let next_dist = calc_distance(next, hq_hex)
+	if (here_dist > hq_range) {
+		if (next_dist >= here_dist)
+			return false
+	} else {
+		if (next_dist > hq_range)
+			return false
+	}
+
+	// can't cross river
+	if (is_river(here, next))
+		return false
+
+	// can't enter hex with another corps
+	if (hex_has_any_piece(next, p1_corps))
+		return false
+	if (hex_has_any_piece(next, p2_corps))
+		return false
+
+	// can't enter hex with enemy detachment
+	if (hex_has_any_piece(next, enemy_detachments()))
+		return false
+
+	if (is_cav) {
+		// Cavalry beginning move in Infantry ZoC may only move to empty hex not in ZoC
+		// TODO: starting in detachment zoc?
+		if (is_enemy_zoc(here) && (is_enemy_zoc(next) || !is_empty_hex(next)))
+			return false
+	}
+
+	return true
+}
+
+function must_stop(from, is_cav) {
+	// must stop in stream
+	if (is_stream(from))
+		return true
+	
+	// must stop in ZoC or ZoI
+	if (is_cav) {
+		if (is_enemy_zoc_or_cav_zoi(from))
+			return true
+	} else {
+		if (is_enemy_zoc_or_zoi(from))
+			return true
+	}
+
+	return false
+}
+
+// OFF ROAD MOVEMENT SEARCH
+
+const move_seen = new Array(last_hex - 999).fill(0)
+const move_cost = new Array(last_hex - 999).fill(0)
+
+function gen_move(p) {
+	move_seen.fill(0)
+	let x = piece_hex(p)
+	let m = piece_movement_allowance(p)
+	for (let hq of data.pieces[p].hq) {
+		let hq_hex = piece_hex(hq)
+		if (is_map_hex(hq_hex)) {
+			search_move(x, m, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+			if (is_road(x))
+				search_move_road(x, m * 2, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+		}
+	}
+	for (let x = 1000; x <= last_hex; ++x)
+		if (move_seen[x-1000])
+			gen_action_hex(x)
+
+}
+
+function search_move(start, ma, hq_hex, hq_range, is_cav) {
+	move_cost.fill(0)
+	move_cost[start-1000] = ma
+	let queue = [ start ]
+	while (queue.length > 0) {
+		let here = queue.shift()
+		let mp = move_cost[here-1000] - 1
+		for_each_adjacent(here, next => {
+			if (can_move_into(here, next, hq_hex, hq_range, is_cav)) {
+				move_seen[next-1000] = 1
+				if (mp > move_cost[next-1000] && !must_stop(next, is_cav)) {
+					move_cost[next-1000] = mp
+					queue.push(next)
+				}
+			}
+		})
+	}
+}
+
+function search_move_road(start, ma, hq_hex, hq_range, is_cav) {
+	move_cost.fill(0)
+	move_cost[start-1000] = ma
+	let queue = [ start ]
+	while (queue.length > 0) {
+		let here = queue.shift()
+		let mp = move_cost[here-1000]
+		// console.log("MOVE", here, mp)
+		for (let [road_id, k] of data_roads[here-1000]) {
+			let road = data.map.roads[road_id]
+			if (k + 1 < road.length)
+				search_move_road_segment(queue, road, k, 1, hq_hex, hq_range, is_cav)
+			if (k > 0)
+				search_move_road_segment(queue, road, k, -1, hq_hex, hq_range, is_cav)
+		}
+	}
+}
+
+function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_cav) {
+	let here = road[cur]
+	let mp = move_cost[here-1000]
+	cur += dir
+	while (mp > 0 && cur >= 0 && cur < road.length) {
+		let next = road[cur]
+		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
+			break
+		move_seen[next-1000] = 1
+		if (must_stop(next, is_cav))
+			return
+		here = next
+		cur += dir
+		mp --
+	}
+	if (mp > move_cost[here-1000]) {
+		move_cost[here-1000] = mp
+		queue.push(here)
+	}
 }
 
 // === === ATTACK PHASE === ===
@@ -651,6 +927,8 @@ function setup_june_15() {
 	setup_piece("Prussian", "I Detachment (Steinmetz)", 1215)
 	setup_piece("Prussian", "I Detachment (Pirch)", 1217)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
+
+	goto_movement_phase()
 }
 
 function setup_june_16() {
@@ -684,6 +962,8 @@ function setup_june_16() {
 	setup_piece("Prussian", "III Corps (Thielmann)", 1737)
 	setup_piece("Prussian", "IV Corps (Bulow)", 3)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
+
+	goto_detachment_placement_step()
 }
 
 exports.setup = function (seed, scenario, options) {
@@ -705,17 +985,15 @@ exports.setup = function (seed, scenario, options) {
 	else
 		setup_june_16()
 
-	goto_command_phase()
-
 	return game
 }
 
 // === COMMON ===
 
-function gen_action(action, argument) {
+function gen_action(action, what) {
 	if (!(action in view.actions))
 		view.actions[action] = []
-	view.actions[action].push(argument)
+	set_add(view.actions[action], what)
 }
 
 function gen_action_piece(piece) {
@@ -733,7 +1011,10 @@ exports.view = function (state, player) {
 		prompt: null,
 		actions: null,
 		log: game.log,
+		turn: game.turn,
+		remain: game.remain,
 		pieces: game.pieces,
+		who: game.who,
 	}
 
 	if (game.state === "game_over") {
@@ -760,6 +1041,7 @@ exports.view = function (state, player) {
 }
 
 exports.action = function (state, player, action, arg) {
+	zoc_valid = false
 	game = state
 	let S = states[game.state]
 	if (action in S)
