@@ -97,9 +97,13 @@ function on_focus_piece(evt) {
 }
 
 function on_click_action(evt) {
-	if (evt.button === 0)
+	if (evt.button === 0) {
 		if (send_action(evt.target.my_action, evt.target.my_id))
 			evt.stopPropagation()
+		if (evt.target.my_action_2)
+			if (send_action(evt.target.my_action_2, evt.target.my_id))
+				evt.stopPropagation()
+	}
 }
 
 function toggle_pieces() {
@@ -129,6 +133,7 @@ function build_hexes() {
 			hex.onmouseenter = on_focus_hex
 			hex.onmouseleave = on_blur
 			hex.my_action = "hex"
+			hex.my_action_2 = "stop_hex"
 			hex.my_id = hex_id
 			if (data.map.names[hex_id])
 				hex.my_name = String(hex_id) + " (" + data.map.names[hex_id] + ")"
@@ -190,7 +195,8 @@ function on_update() {
 	for (let row = 0; row < data.map.rows; ++row) {
 		for (let col = 0; col < data.map.cols; ++col) {
 			let id = first_hex + row * 100 + col
-			ui.hexes[id].classList.toggle("action", is_action("hex", id))
+			ui.hexes[id].classList.toggle("action", is_action("hex", id) || is_action("stop_hex", id))
+			ui.hexes[id].classList.toggle("stop", is_action("stop_hex", id))
 		}
 	}
 

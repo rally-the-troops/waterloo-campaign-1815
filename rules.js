@@ -162,8 +162,6 @@ for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
 		data_roads[road[k]-1000].push([road_id, k])
 }
 
-// console.log("ROAD", JSON.stringify(data_roads))
-
 function is_road(x) {
 	return data_roads[x-1000].length > 0
 }
@@ -218,6 +216,7 @@ function update_zoc_imp(zoc, zoi, units) {
 }
 
 function update_zoc() {
+	console.log("update_zoc", zoc_valid)
 	if (!zoc_valid) {
 		zoc_valid = true
 		zoc_cache.fill(0)
@@ -556,7 +555,7 @@ function resume_battle_formation() {
 	game.state = "battle_formation"
 	update_zoc()
 	for (let p of friendly_infantry_corps())
-		if (piece_mode(p) && piece_is_in_enemy_zoc(p))
+		if (!piece_mode(p) && piece_is_in_enemy_zoc(p))
 			return
 	end_battle_formation()
 }
@@ -573,8 +572,9 @@ function end_battle_formation() {
 states.advance_formation = {
 	prompt() {
 		prompt("Advance Formation.")
+		update_zoc()
 		for (let p of friendly_infantry_corps())
-			if (piece_mode(p) && piece_is_not_in_enemy_zoc(p))
+			if (!piece_mode(p) && piece_is_not_in_enemy_zoc(p))
 				gen_action_piece(p)
 	},
 	piece(p) {
@@ -586,6 +586,7 @@ states.advance_formation = {
 states.battle_formation = {
 	prompt() {
 		prompt("Battle Formation.")
+		update_zoc()
 		for (let p of friendly_infantry_corps())
 			if (piece_mode(p) && piece_is_in_enemy_zoc(p))
 				gen_action_piece(p)
@@ -702,25 +703,51 @@ states.movement = {
 	},
 }
 
+function is_stop_and_flip_move(x) {
+	if (!(move_seen[x-1000] & 2) && is_stream(x))
+		return true
+	if (piece_is_infantry(game.who) && is_enemy_zoc(x))
+		return true
+	if (piece_is_cavalry(game.who) && is_enemy_cav_zoc(x))
+		return true
+	return false
+}
+
 states.movement_to = {
 	prompt() {
 		prompt("Move " + data.pieces[game.who].name + ".")
 
 		update_zoc()
+		search_move(game.who)
 
-		gen_move(game.who)
+		for (let row = 0; row < data.map.rows; ++row) {
+			for (let col = 0; col < data.map.cols; ++col) {
+				let x = 1000 + row * 100 + col
+				if (move_seen[x-1000]) {
+					if (is_stop_and_flip_move(x))
+						gen_action_stop_hex(x)
+					else
+						gen_action_hex(x)
+				}
+			}
+		}
 
 		gen_action_piece(game.who)
 	},
 	piece(p) {
 		pop_undo()
 	},
+	stop_hex(x) {
+		this.hex(x)
+	},
 	hex(x) {
 		update_zoc()
+		search_move(game.who)
 
 		set_piece_hex(game.who, x)
 
-		if (is_stream(x))
+		// off-road move into stream hex
+		if (!(move_seen[x-1000] & 2) && is_stream(x))
 			set_piece_mode(game.who, 1)
 
 		if (piece_is_infantry(game.who) && is_enemy_zoc(x))
@@ -776,21 +803,18 @@ function can_move_into(here, next, hq_hex, hq_range, is_cav) {
 	return true
 }
 
-function must_stop(from, is_cav) {
-	// must stop in stream
+function must_stop_offroad(from, is_cav) {
 	if (is_stream(from))
 		return true
-	
-	// must stop in ZoC or ZoI
-	if (is_cav) {
-		if (is_enemy_zoc_or_cav_zoi(from))
-			return true
-	} else {
-		if (is_enemy_zoc_or_zoi(from))
-			return true
-	}
+	if (is_cav)
+		return is_enemy_zoc_or_cav_zoi(from)
+	return is_enemy_zoc_or_zoi(from)
+}
 
-	return false
+function must_stop_road(from, is_cav) {
+	if (is_cav)
+		return is_enemy_zoc_or_cav_zoi(from)
+	return is_enemy_zoc_or_zoi(from)
 }
 
 // OFF ROAD MOVEMENT SEARCH
@@ -798,25 +822,21 @@ function must_stop(from, is_cav) {
 const move_seen = new Array(last_hex - 999).fill(0)
 const move_cost = new Array(last_hex - 999).fill(0)
 
-function gen_move(p) {
+function search_move(p) {
 	move_seen.fill(0)
 	let x = piece_hex(p)
 	let m = piece_movement_allowance(p)
 	for (let hq of data.pieces[p].hq) {
 		let hq_hex = piece_hex(hq)
 		if (is_map_hex(hq_hex)) {
-			search_move(x, m, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+			search_move_offroad(x, m, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 			if (is_road(x))
 				search_move_road(x, m * 2, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 		}
 	}
-	for (let x = 1000; x <= last_hex; ++x)
-		if (move_seen[x-1000])
-			gen_action_hex(x)
-
 }
 
-function search_move(start, ma, hq_hex, hq_range, is_cav) {
+function search_move_offroad(start, ma, hq_hex, hq_range, is_cav) {
 	move_cost.fill(0)
 	move_cost[start-1000] = ma
 	let queue = [ start ]
@@ -825,8 +845,8 @@ function search_move(start, ma, hq_hex, hq_range, is_cav) {
 		let mp = move_cost[here-1000] - 1
 		for_each_adjacent(here, next => {
 			if (can_move_into(here, next, hq_hex, hq_range, is_cav)) {
-				move_seen[next-1000] = 1
-				if (mp > move_cost[next-1000] && !must_stop(next, is_cav)) {
+				move_seen[next-1000] |= 1
+				if (mp > move_cost[next-1000] && !must_stop_offroad(next, is_cav)) {
 					move_cost[next-1000] = mp
 					queue.push(next)
 				}
@@ -861,8 +881,8 @@ function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_ca
 		let next = road[cur]
 		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
 			break
-		move_seen[next-1000] = 1
-		if (must_stop(next, is_cav))
+		move_seen[next-1000] |= 2
+		if (must_stop_road(next, is_cav))
 			return
 		here = next
 		cur += dir
@@ -1002,6 +1022,10 @@ function gen_action_piece(piece) {
 
 function gen_action_hex(hex) {
 	gen_action("hex", hex)
+}
+
+function gen_action_stop_hex(hex) {
+	gen_action("stop_hex", hex)
 }
 
 exports.view = function (state, player) {
