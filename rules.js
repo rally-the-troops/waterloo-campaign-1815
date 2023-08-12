@@ -114,6 +114,7 @@ function hex_has_any_piece(x, list) {
 
 const data_rivers = []
 const data_bridges = []
+const data_road_hexsides = []
 
 for (let [a, b] of data.map.rivers) {
 	set_add(data_rivers, a * 10000 + b)
@@ -135,7 +136,11 @@ function is_bridge(a, b) {
 	return set_has(data_bridges, a * 10000 + b)
 }
 
-function is_stream(x) {
+function is_road_hexside(a, b) {
+	return set_has(data_road_hexsides, a * 10000 + b)
+}
+
+function is_stream_hex(x) {
 	return set_has(data.map.streams, x)
 }
 
@@ -158,11 +163,18 @@ function make_road(id, road, i, d) {
 
 for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
 	let road = data.map.roads[road_id]
-	for (let k = 0; k < road.length; ++k)
+	for (let k = 0; k < road.length; ++k) {
+		if (k > 0) {
+			let a = road[k-1]
+			let b = road[k]
+			set_add(data_road_hexsides, a * 10000 + b)
+			set_add(data_road_hexsides, b * 10000 + a)
+		}
 		data_roads[road[k]-1000].push([road_id, k])
+	}
 }
 
-function is_road(x) {
+function is_road_hex(x) {
 	return data_roads[x-1000].length > 0
 }
 
@@ -194,29 +206,21 @@ function is_enemy_zoc_or_zoi(x) { return game.active !== P1 ? is_p1_zoc_or_zoi(x
 function update_zoc_imp(zoc, zoi, units) {
 	for (let p of units) {
 		let a = piece_hex(p)
-		let aa = a - 1000
-		if (!(zoc_cache[aa] & zoc)) {
-			zoc_cache[aa] |= zoc
-			for_each_adjacent(a, b => {
-				let bb = b - 1000
-				if (!(zoc_cache[bb] & zoc) && !is_river(a, b)) {
-					zoc_cache[bb] |= zoc
-					if (zoi) {
-						for_each_adjacent(b, c => {
-							let cc = c - 1000
-							if (!is_bridge(b, c)) {
-								zoc_cache[cc] |= zoi
-							}
-						})
-					}
+		for_each_adjacent(a, b => {
+			if (!is_river(a, b)) {
+				zoc_cache[b - 1000] |= zoc
+				if (zoi) {
+					for_each_adjacent(b, c => {
+						if (!is_bridge(b, c))
+							zoc_cache[c - 1000] |= zoi
+					})
 				}
-			})
-		}
+			}
+		})
 	}
 }
 
 function update_zoc() {
-	console.log("update_zoc", zoc_valid)
 	if (!zoc_valid) {
 		zoc_valid = true
 		zoc_cache.fill(0)
@@ -703,16 +707,6 @@ states.movement = {
 	},
 }
 
-function is_stop_and_flip_move(x) {
-	if (!(move_seen[x-1000] & 2) && is_stream(x))
-		return true
-	if (piece_is_infantry(game.who) && is_enemy_zoc(x))
-		return true
-	if (piece_is_cavalry(game.who) && is_enemy_cav_zoc(x))
-		return true
-	return false
-}
-
 states.movement_to = {
 	prompt() {
 		prompt("Move " + data.pieces[game.who].name + ".")
@@ -723,11 +717,12 @@ states.movement_to = {
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				if (move_seen[x-1000]) {
-					if (is_stop_and_flip_move(x))
-						gen_action_stop_hex(x)
-					else
+				let m = move_seen[x-1000]
+				if (m & 1) {
+					if (m & 2)
 						gen_action_hex(x)
+					else
+						gen_action_stop_hex(x)
 				}
 			}
 		}
@@ -746,11 +741,8 @@ states.movement_to = {
 
 		set_piece_hex(game.who, x)
 
-		// off-road move into stream hex
-		if (!(move_seen[x-1000] & 2) && is_stream(x))
-			set_piece_mode(game.who, 1)
-
-		if (piece_is_infantry(game.who) && is_enemy_zoc(x))
+		// must flip (stream without road, or enter zoc)
+		if (!(move_seen[x-1000] & 2))
 			set_piece_mode(game.who, 1)
 
 		// TODO: flip all enemy inf in game.who's zoc
@@ -803,21 +795,25 @@ function can_move_into(here, next, hq_hex, hq_range, is_cav) {
 	return true
 }
 
-function must_stop_offroad(from, is_cav) {
-	if (is_stream(from))
+function must_stop_zoc_zoi(here, next, is_cav) {
+	if (is_cav && is_enemy_zoc_or_cav_zoi(next))
 		return true
-	if (is_cav)
-		return is_enemy_zoc_or_cav_zoi(from)
-	return is_enemy_zoc_or_zoi(from)
+	if (!is_cav && is_enemy_zoc_or_zoi(next))
+		return true
+	return false
 }
 
-function must_stop_road(from, is_cav) {
-	if (is_cav)
-		return is_enemy_zoc_or_cav_zoi(from)
-	return is_enemy_zoc_or_zoi(from)
+function must_stop_stream(here, next) {
+	if (is_stream_hex(next) && !is_road_hexside(here, next))
+		return true
+	return false
 }
 
-// OFF ROAD MOVEMENT SEARCH
+function must_flip_zoc(here, next, is_cav) {
+	if (!is_cav && is_enemy_zoc(next))
+		return true
+	return false
+}
 
 const move_seen = new Array(last_hex - 999).fill(0)
 const move_cost = new Array(last_hex - 999).fill(0)
@@ -830,8 +826,9 @@ function search_move(p) {
 		let hq_hex = piece_hex(hq)
 		if (is_map_hex(hq_hex)) {
 			search_move_offroad(x, m, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
-			if (is_road(x))
-				search_move_road(x, m * 2, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+			if (!(piece_is_infantry(game.who) && piece_mode(game.who)))
+				if (is_road_hex(x))
+					search_move_road(x, m * 2, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 		}
 	}
 }
@@ -842,11 +839,17 @@ function search_move_offroad(start, ma, hq_hex, hq_range, is_cav) {
 	let queue = [ start ]
 	while (queue.length > 0) {
 		let here = queue.shift()
-		let mp = move_cost[here-1000] - 1
 		for_each_adjacent(here, next => {
 			if (can_move_into(here, next, hq_hex, hq_range, is_cav)) {
+				let mp = move_cost[here-1000] - 1
 				move_seen[next-1000] |= 1
-				if (mp > move_cost[next-1000] && !must_stop_offroad(next, is_cav)) {
+				if (!must_stop_stream(here, next) && !must_flip_zoc(here, next, is_cav))
+					move_seen[next-1000] |= 2
+				else
+					mp = 0
+				if (must_stop_zoc_zoi(here, next, is_cav))
+					mp = 0
+				if (mp > move_cost[next-1000]) {
 					move_cost[next-1000] = mp
 					queue.push(next)
 				}
@@ -881,8 +884,10 @@ function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_ca
 		let next = road[cur]
 		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
 			break
-		move_seen[next-1000] |= 2
-		if (must_stop_road(next, is_cav))
+		move_seen[next-1000] |= 1
+		if (!must_flip_zoc(here, next, is_cav))
+			move_seen[next-1000] |= 2
+		if (must_stop_zoc_zoi(here, next, is_cav))
 			return
 		here = next
 		cur += dir
