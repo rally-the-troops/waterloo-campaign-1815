@@ -23,23 +23,23 @@ var states = {}
 const ELIMINATED = 0
 const AVAILABLE_P1 = 100
 const AVAILABLE_P2 = 101
+const REINFORCEMENTS = 102
 
-const ENTRY_A = 4006
-const ENTRY_B = 4015
-const ENTRY_C = 4025
-const ENTRY_D1 = 1017
-const ENTRY_D2 = 1018
+function find_piece(name) {
+	let id = data.pieces.findIndex(pc => pc.name === name)
+	if (id < 0)
+		throw new Error("PIECE NOT FOUND: " + name)
+	return id
+}
 
-const OFFMAP_A = 4106
-const OFFMAP_B = 4115
-const OFFMAP_C = 4125
-const OFFMAP_D = 917
+for (let info of data.reinforcements)
+	info.list = info.list.map(name => find_piece(name))
 
-const NAPOLEON_HQ = data.pieces.findIndex(pc => pc.name === "Napoleon HQ")
-const OLD_GUARD = data.pieces.findIndex(pc => pc.name === "Old Guard")
-const GRAND_BATTERY = data.pieces.findIndex(pc => pc.name === "Grand Battery")
-const HILL_1 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill*)")
-const HILL_2 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill**)")
+const NAPOLEON_HQ = find_piece("Napoleon HQ")
+const OLD_GUARD = find_piece("Old Guard")
+const GRAND_BATTERY = find_piece("Grand Battery")
+const HILL_1 = find_piece("II Corps (Hill*)")
+const HILL_2 = find_piece("II Corps (Hill**)")
 
 const brussels_couillet_road_x3 = []
 for (let a of data.map.brussels_couillet_road) {
@@ -936,6 +936,11 @@ function goto_movement_phase() {
 	game.active = P1
 	game.state = "movement"
 	game.remain = 0
+
+	for (let info of data.reinforcements)
+		if (info.turn === game.turn)
+			for (let p of info.list)
+				set_piece_hex(p, REINFORCEMENTS)
 }
 
 function next_movement() {
@@ -963,6 +968,17 @@ states.movement = {
 		for (let p of friendly_infantry_corps())
 			if (piece_is_not_in_enemy_zoc(p))
 				gen_action_piece(p)
+
+		for (let info of data.reinforcements) {
+			if (info.turn === game.turn && info.side === game.active) {
+				for (let p of info.list) {
+					if (!piece_is_on_map(p)) {
+						gen_action_piece(p)
+						break
+					}
+				}
+			}
+		}
 
 		view.actions.pass = 1
 	},
@@ -1094,17 +1110,31 @@ function must_flip_zoc(here, next, is_cav) {
 const move_seen = new Array(last_hex - 999).fill(0)
 const move_cost = new Array(last_hex - 999).fill(0)
 
+function find_reinforcement_hex(who) {
+	for (let info of data.reinforcements)
+		for (let p of info.list)
+			if (p === who)
+				return info.hex
+	return 0
+}
+
 function search_move(p) {
 	move_seen.fill(0)
 	let x = piece_hex(p)
 	let m = piece_movement_allowance(p)
+	let u = 0
+	if (x === REINFORCEMENTS) {
+		x = find_reinforcement_hex(p)
+		u = 1
+		move_seen[x-1000] = 3
+	}
 	for (let hq of data.pieces[p].hq) {
 		let hq_hex = piece_hex(hq)
 		if (is_map_hex(hq_hex)) {
-			search_move_offroad(x, m, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+			search_move_offroad(x, m - u, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 			if (!(piece_is_infantry(game.who) && piece_mode(game.who)))
 				if (is_road_hex(x))
-					search_move_road(x, m * 2, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+					search_move_road(x, m * 2 - u, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 		}
 	}
 }
@@ -1189,7 +1219,7 @@ function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_ca
 	let here = road[cur]
 	let mp = move_cost[here-1000]
 	cur += dir
-	while (mp > 0 && cur >= 0 && cur < road.length) {
+	while (mp >= 0 && cur >= 0 && cur < road.length) {
 		let next = road[cur]
 		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
 			break
@@ -1330,9 +1360,7 @@ function roll_attack() {
 // === SETUP ===
 
 function setup_piece(side, name, hex, mode = 0) {
-	let id = data.pieces.findIndex(pc => pc.side === side && pc.name === name)
-	if (id < 0)
-		throw new Error("INVALID PIECE NAME: " + name)
+	let id = find_piece(name)
 	set_piece_hex(id, hex)
 	set_piece_mode(id, mode)
 }
