@@ -221,8 +221,8 @@ function on_update() {
 		} else if (hex === 100 || hex === 101) {
 			// AVAILABLE DETACHMENTS
 			ui.pieces[id].classList.remove("hide")
-			ui.pieces[id].classList.remove("flip")
-			let x = 600 + 20 + ui.stack[hex] * 50
+			ui.pieces[id].classList.toggle("flip", (view.pieces[id] & 1) === 1)
+			let x = 600 + 20 + ui.stack[hex] * 60
 			let y = 1650 + 20 + 60 * (hex-100)
 			ui.stack[hex] += 1
 			ui.pieces[id].style.top = y + "px"
@@ -263,11 +263,8 @@ function on_update() {
 		}
 	}
 
-	action_button("edit_town", "Town")
-	action_button("edit_stream", "Stream")
-	action_button("edit_road", "Road")
-
 	action_button("next", "Next")
+	action_button("done", "Done")
 	action_button("pass", "Pass")
 	action_button("undo", "Undo")
 }

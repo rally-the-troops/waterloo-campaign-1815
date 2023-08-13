@@ -41,6 +41,20 @@ const GRAND_BATTERY = data.pieces.findIndex(pc => pc.name === "Grand Battery")
 const HILL_1 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill*)")
 const HILL_2 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill**)")
 
+const brussels_couillet_road_x3 = []
+for (let a of data.map.brussels_couillet_road) {
+	set_add(brussels_couillet_road_x3, a)
+	for_each_adjacent(a, (b) => {
+		set_add(brussels_couillet_road_x3, b)
+		for_each_adjacent(b, (c) => {
+			set_add(brussels_couillet_road_x3, c)
+			for_each_adjacent(c, (d) => {
+				set_add(brussels_couillet_road_x3, d)
+			})
+		})
+	})
+}
+
 function make_piece_list(f) {
 	let list = []
 	for (let p = 0; p < data.pieces.length; ++p)
@@ -112,6 +126,10 @@ function piece_command_range(p) {
 	if (piece_mode(p))
 		return data.pieces[p].range2
 	return data.pieces[p].range1
+}
+
+function pieces_are_same_side(a, b) {
+	return data.pieces[a].side === data.pieces[b].side
 }
 
 function is_empty_hex(x) {
@@ -383,7 +401,15 @@ function goto_command_phase() {
 
 function goto_hq_placement_step() {
 	game.active = P1
-	game.state = "hq_placement_step"
+	game.state = "place_hq"
+	for (let p of p1_hqs) {
+		set_piece_hex(p, AVAILABLE_P1)
+		set_piece_mode(p, 0)
+	}
+	for (let p of p2_hqs) {
+		set_piece_hex(p, AVAILABLE_P2)
+		set_piece_mode(p, 0)
+	}
 }
 
 function end_hq_placement_step() {
@@ -393,13 +419,79 @@ function end_hq_placement_step() {
 		goto_blown_unit_return_step()
 }
 
-states.hq_placement_step = {
+states.place_hq = {
 	prompt() {
 		prompt("HQ Placement Step.")
-		view.actions.next = 1
+		let done = true
+		for (let p of friendly_hqs()) {
+			gen_action_piece(p)
+			if (!piece_is_on_map(p))
+				done = false
+		}
+		if (done)
+			view.actions.next = 1
+	},
+	piece(p) {
+		if (piece_is_on_map(p)) {
+			set_piece_mode(p, 1 - piece_mode(p))
+		} else {
+			push_undo()
+			game.who = p
+			game.state = "place_hq_where"
+		}
 	},
 	next() {
 		end_hq_placement_step()
+	},
+}
+
+function gen_place_hq(from, here, n) {
+	for_each_adjacent(here, next => {
+		if (calc_distance(next, from) <= calc_distance(here, from))
+			return
+		if (n > 1)
+			gen_place_hq(from, next, n - 1)
+		// TODO RULES: as the crow flies or must trace path?
+		if (is_enemy_zoc_or_zoi(next) || hex_has_any_piece(next, friendly_hqs()))
+			return
+		gen_action_hex(next)
+	})
+}
+
+states.place_hq_where = {
+	prompt() {
+		prompt("HQ Placement Step.")
+		gen_action_piece(game.who)
+		view.actions.normal = piece_mode(game.who) ? 1 : 0
+		view.actions.battle = piece_mode(game.who) ? 0 : 1
+
+		update_zoc()
+
+		// within 3 of any unit
+		for (let p of friendly_units()) {
+			let x = piece_hex(p)
+			if (is_map_hex(x) && pieces_are_same_side(p, game.who)) {
+				if (!is_enemy_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_hqs()))
+					gen_action_hex(x)
+				gen_place_hq(x, x, 3)
+			}
+		}
+
+		// if not possible, within 3 of a brussels to couillet road hex
+		if (!view.actions.hex) {
+			for (let x of brussels_couillet_road_x3) {
+				if (is_empty_hex(x))
+					gen_action_hex(x)
+			}
+		}
+	},
+	piece(p) {
+		pop_undo()
+	},
+	hex(x) {
+		set_piece_hex(game.who, x)
+		game.who = -1
+		game.state = "place_hq"
 	},
 }
 
@@ -432,7 +524,7 @@ states.blown_unit_return_step = {
 
 // === C: CAVALRY CORPS RECOVERY STEP ===
 
-// TODO: merge with steps F and G to save time
+// TODO: automated?
 
 function goto_cavalry_corps_recovery_step() {
 	game.active = P1
@@ -526,7 +618,7 @@ states.place_detachment_who = {
 		for (let p of friendly_detachments()) {
 			let x = piece_hex(p)
 			if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
-				if (data.pieces[p].side === data.pieces[game.target].side) {
+				if (pieces_are_same_side(p, game.target)) {
 					// SPECIAL: french grand battery and old guard
 					if (p === GRAND_BATTERY || p === OLD_GUARD) {
 						if (game.target === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
@@ -578,7 +670,11 @@ states.place_detachment_where = {
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				if (move_seen[x-1000] && !is_friendly_zoc_or_zoi(x))
+				if (
+					move_seen[x-1000] &&
+					!is_friendly_zoc_or_zoi(x) &&
+					!hex_has_any_piece(x, friendly_detachments())
+				)
 					gen_action_hex(x)
 			}
 		}
@@ -675,8 +771,7 @@ states.british_line_of_communication_angst_2 = {
 // === F: ADVANCE FORMATION ===
 // === G: BATTLE FORMATION ===
 
-// NOTE: merged step F and step G to save time
-// TODO: move step C here
+// TODO: automated?
 
 function goto_advance_formation() {
 	game.active = P1
@@ -1125,8 +1220,6 @@ function search_withdrawal(here) {
 
 function search_retreat(result, here, from, n) {
 	for_each_adjacent(here, next => {
-		console.log("search retreat", next, here, from)
-
 		// must move further away
 		if (calc_distance(next, from) <= calc_distance(here, from))
 			return
