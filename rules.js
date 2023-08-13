@@ -1,5 +1,8 @@
 "use strict"
 
+// TODO: recall grand battery at end of turn
+// TODO: recall grand battery if alon
+
 const FRENCH = "French"
 const COALITION = "Coalition"
 
@@ -655,9 +658,10 @@ function begin_detachment_placement_step() {
 	game.count = 0
 	for (let p of friendly_hqs())
 		game.count |= (1 << p)
-	for (let p of friendly_detachments())
-		if (can_place_detachment(p))
-			return
+	for (let hq of friendly_hqs())
+		for (let p of friendly_detachments())
+			if (can_place_detachment(p, hq))
+				return
 	end_detachment_placement_step()
 }
 
@@ -695,13 +699,12 @@ states.place_detachment_hq = {
 	},
 }
 
-function can_place_detachment(p) {
+function can_place_detachment(p, hq) {
 	let x = piece_hex(p)
 	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
-		if (pieces_are_same_side(p, game.target)) {
-			// SPECIAL: french grand battery and old guard
+		if (pieces_are_same_side(p, hq)) {
 			if (p === GRAND_BATTERY || p === OLD_GUARD) {
-				if (game.target === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
+				if (hq === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
 					return true
 			} else {
 				return true
@@ -716,7 +719,7 @@ states.place_detachment_who = {
 		prompt("Place Detachment: Select an available detachment.")
 		gen_action_piece(game.target)
 		for (let p of friendly_detachments())
-			if (can_place_detachment(p))
+			if (can_place_detachment(p, game.target))
 				gen_action_piece(p)
 	},
 	piece(p) {
@@ -732,16 +735,34 @@ states.place_detachment_who = {
 	},
 }
 
+function gen_place_old_guard(from, here, n) {
+	for_each_adjacent(here, next => {
+		if (calc_distance(next, from) <= calc_distance(here, from))
+			return
+		if (n > 1)
+			gen_place_old_guard(from, next, n - 1)
+		if (!is_enemy_zoc(next) && is_empty_hex(next))
+			gen_action_hex(next)
+	})
+}
+
 states.place_detachment_where = {
 	prompt() {
 		prompt("Place " + data.pieces[game.who].name + ".")
 		gen_action_piece(game.who)
 
 		if (game.who === GRAND_BATTERY) {
+			for (let p of friendly_units()) {
+				let x = piece_hex(p)
+				if (calc_distance(piece_hex(NAPOLEON_HQ), x) <= 3)
+					if (!hex_has_any_piece(x, p1_det))
+						gen_action_hex(x)
+			}
 			return
 		}
 
 		if (game.who === OLD_GUARD) {
+			gen_place_old_guard(piece_hex(NAPOLEON_HQ), piece_hex(NAPOLEON_HQ), 3)
 			return
 		}
 
@@ -798,6 +819,13 @@ function end_detachment_recall_step() {
 	}
 }
 
+function recall_detachment(p) {
+	if (set_has(p1_det, p))
+		set_piece_hex(p, AVAILABLE_P1)
+	else
+		set_piece_hex(p, AVAILABLE_P2)
+}
+
 states.detachment_recall_step = {
 	prompt() {
 		prompt("Detachment Recall Step.")
@@ -810,10 +838,7 @@ states.detachment_recall_step = {
 	},
 	piece(p) {
 		push_undo()
-		if (game.active === P1)
-			set_piece_hex(p, AVAILABLE_P1)
-		else
-			set_piece_hex(p, AVAILABLE_P2)
+		recall_detachment(p)
 	},
 	pass() {
 		end_detachment_recall_step()
