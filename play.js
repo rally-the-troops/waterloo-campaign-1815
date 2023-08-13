@@ -1,5 +1,11 @@
 "use strict"
 
+const ELIMINATED = 0
+const REINFORCEMENTS = 100
+const AVAILABLE_P1 = 101
+const AVAILABLE_P2 = 102
+const BLOWN = 103
+
 const last_corps = 22
 const piece_count = 39
 
@@ -212,7 +218,7 @@ function find_reinforcement_hex(who) {
 		for (let p of info.list)
 			if (p === who)
 				return info.hex
-	return 102
+	return REINFORCEMENTS
 }
 
 function find_reinforcement_z(who) {
@@ -221,7 +227,7 @@ function find_reinforcement_z(who) {
 		for (let p of info.list) {
 			if (p === who)
 				return n
-			if ((view.pieces[p] >> 1) === 102)
+			if ((view.pieces[p] >> 1) === REINFORCEMENTS)
 				++n
 		}
 	}
@@ -243,12 +249,14 @@ function on_update() {
 		let hex = view.pieces[id] >> 1
 		let z = 0
 		let s = 0
-		if (hex >= first_hex || hex === 102) {
+		if (hex > BLOWN && hex < first_hex)
+			hex -= BLOWN
+		if (hex >= first_hex || hex === REINFORCEMENTS) {
 			// ON MAP
 			ui.pieces[id].classList.remove("hide")
 			ui.pieces[id].classList.toggle("flip", (view.pieces[id] & 1) === 1)
 			let x, y
-			if (hex === 102) {
+			if (hex === REINFORCEMENTS) {
 				hex = find_reinforcement_hex(id)
 				s = find_reinforcement_z(id)
 				z = 4 - s
@@ -273,12 +281,12 @@ function on_update() {
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
 			ui.pieces[id].style.zIndex = z
-		} else if (hex >= 100) {
+		} else if (hex >= AVAILABLE_P1 && hex <= BLOWN) {
 			// OFF MAP DETACHMENTS / LEADERS / REINFORCEMENTS
 			ui.pieces[id].classList.remove("hide")
 			ui.pieces[id].classList.toggle("flip", (view.pieces[id] & 1) === 1)
 			let x = 600 + 40 + ui.stack[hex] * 60
-			let y = 1650 + 40 + 60 * (hex-100)
+			let y = 1650 + 40 + 60 * (hex-AVAILABLE_P1)
 			ui.stack[hex] += 1
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"

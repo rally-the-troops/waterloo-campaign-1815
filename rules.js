@@ -21,9 +21,10 @@ var view = null
 var states = {}
 
 const ELIMINATED = 0
-const AVAILABLE_P1 = 100
-const AVAILABLE_P2 = 101
-const REINFORCEMENTS = 102
+const REINFORCEMENTS = 100
+const AVAILABLE_P1 = 101
+const AVAILABLE_P2 = 102
+const BLOWN = 103
 
 function find_piece(name) {
 	let id = data.pieces.findIndex(pc => pc.name === name)
@@ -151,6 +152,16 @@ function piece_is_in_zoc_of_hex(p, x) {
 	if (is_map_hex(y) && calc_distance(x, y) === 1)
 		return !is_river(x, y)
 	return false
+}
+
+function blow_unit(p, n) {
+	if (game.turn + n > 8) {
+		set_piece_hex(p, ELIMINATED)
+	} else {
+		log("Blown unit " + p)
+		set_piece_hex(p, BLOWN + game.turn + n)
+		set_piece_mode(p, 0)
+	}
 }
 
 const data_rivers = []
@@ -394,6 +405,7 @@ end phase
 function goto_command_phase() {
 	log("Command Phase")
 	log("")
+	bring_on_reinforcements()
 	goto_hq_placement_step()
 }
 
@@ -498,27 +510,96 @@ states.place_hq_where = {
 // === B: BLOWN UNIT RETURN STEP ===
 
 function goto_blown_unit_return_step() {
+	log("Blown Unit Return Step")
 	game.active = P1
-	game.state = "blown_unit_return_step"
+	begin_blown_unit_return_step()
+}
+
+function begin_blown_unit_return_step() {
+	game.state = "return_blown_unit"
 	game.count = 2
+	for (let p of friendly_units())
+		if (piece_hex(p) === BLOWN)
+			return
+	end_blown_unit_return_step()
 }
 
 function end_blown_unit_return_step() {
 	if (game.active === P1) {
 		game.active = P2
-		game.count = 2
+		begin_blown_unit_return_step()
 	} else {
 		goto_cavalry_corps_recovery_step()
 	}
 }
 
-states.blown_unit_return_step = {
+states.return_blown_unit = {
 	prompt() {
 		prompt("Blown Unit Return Step.")
-		view.actions.next = 1
+		let done = true
+		for (let p of friendly_units()) {
+			if (piece_hex(p) === BLOWN) {
+				gen_action_piece(p)
+				done = false
+			}
+		}
+		if (done)
+			view.actions.next = 1
+	},
+	piece(p) {
+		push_undo()
+		update_zoc()
+		if (game.count > 0 && can_return_blown_unit(p)) {
+			--game.count
+			console.log("SH", p)
+			game.who = p
+			game.state = "return_blown_unit_where"
+		} else {
+			set_piece_hex(p, ELIMINATED)
+		}
 	},
 	next() {
 		end_blown_unit_return_step()
+	},
+}
+
+function can_return_blown_unit(p) {
+	let result = false
+	for (let hq of friendly_hqs()) {
+		if (pieces_are_same_side(p, hq)) {
+			for_each_adjacent(piece_hex(hq), x => {
+				if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
+					return result = true
+			})
+		}
+	}
+	return result
+}
+
+states.return_blown_unit_where = {
+	prompt() {
+		prompt("Blown Unit Return Step.")
+
+		update_zoc()
+
+		for (let hq of friendly_hqs()) {
+			if (pieces_are_same_side(game.who, hq)) {
+				for_each_adjacent(piece_hex(hq), x => {
+					if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
+						gen_action_hex(x)
+				})
+			}
+		}
+
+		gen_action_piece(game.who)
+	},
+	piece(p) {
+		pop_undo()
+	},
+	hex(x) {
+		set_piece_hex(game.who, x)
+		game.who = -1
+		game.state = "return_blown_unit"
 	},
 }
 
@@ -570,17 +651,14 @@ function goto_detachment_placement_step() {
 }
 
 function begin_detachment_placement_step() {
+	game.state = "place_detachment_hq"
 	game.count = 0
 	for (let p of friendly_hqs())
 		game.count |= (1 << p)
-	resume_detachment_placement_step()
-}
-
-function resume_detachment_placement_step() {
-	game.state = "place_detachment_hq"
-	// TODO: no available detachments
-	if (game.count === 0)
-		end_detachment_placement_step()
+	for (let p of friendly_detachments())
+		if (can_place_detachment(p))
+			return
+	end_detachment_placement_step()
 }
 
 function end_detachment_placement_step() {
@@ -598,7 +676,10 @@ states.place_detachment_hq = {
 		for (let p of friendly_hqs())
 			if (game.count & (1 << p))
 				gen_action_piece(p)
-		view.actions.pass = 1
+		if (game.count === 0)
+			view.actions.next = 1
+		else
+			view.actions.pass = 1
 	},
 	piece(p) {
 		push_undo()
@@ -606,29 +687,37 @@ states.place_detachment_hq = {
 		game.count ^= (1 << p)
 		game.state = "place_detachment_who"
 	},
+	next() {
+		end_detachment_placement_step()
+	},
 	pass() {
 		end_detachment_placement_step()
 	},
 }
 
-states.place_detachment_who = {
-	prompt() {
-		prompt("Place Detachment: Select detachment to place.")
-		gen_action_piece(game.target)
-		for (let p of friendly_detachments()) {
-			let x = piece_hex(p)
-			if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
-				if (pieces_are_same_side(p, game.target)) {
-					// SPECIAL: french grand battery and old guard
-					if (p === GRAND_BATTERY || p === OLD_GUARD) {
-						if (game.target === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
-							gen_action_piece(p)
-					} else {
-						gen_action_piece(p)
-					}
-				}
+function can_place_detachment(p) {
+	let x = piece_hex(p)
+	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
+		if (pieces_are_same_side(p, game.target)) {
+			// SPECIAL: french grand battery and old guard
+			if (p === GRAND_BATTERY || p === OLD_GUARD) {
+				if (game.target === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
+					return true
+			} else {
+				return true
 			}
 		}
+	}
+	return false
+}
+
+states.place_detachment_who = {
+	prompt() {
+		prompt("Place Detachment: Select an available detachment.")
+		gen_action_piece(game.target)
+		for (let p of friendly_detachments())
+			if (can_place_detachment(p))
+				gen_action_piece(p)
 	},
 	piece(p) {
 		if (p === game.target) {
@@ -645,7 +734,7 @@ states.place_detachment_who = {
 
 states.place_detachment_where = {
 	prompt() {
-		prompt("Place Detachment: ...")
+		prompt("Place " + data.pieces[game.who].name + ".")
 		gen_action_piece(game.who)
 
 		if (game.who === GRAND_BATTERY) {
@@ -687,7 +776,7 @@ states.place_detachment_where = {
 		set_piece_hex(game.who, x)
 		game.target = -1
 		game.who = -1
-		resume_detachment_placement_step()
+		game.state = "place_detachment_hq"
 	},
 	next() {
 		end_detachment_placement_step()
@@ -892,12 +981,6 @@ states.withdrawal = {
 	},
 }
 
-function blow_unit(p, n) {
-	log("Blown unit " + p)
-	set_piece_hex(p, game.turn + n)
-	set_piece_mode(p, 0)
-}
-
 states.withdrawal_to = {
 	prompt() {
 		prompt("Withdrawal to.")
@@ -929,6 +1012,16 @@ states.withdrawal_to = {
 
 // === === MOVEMENT PHASE === ===
 
+function bring_on_reinforcements() {
+	for (let info of data.reinforcements)
+		if (info.turn === game.turn)
+			for (let p of info.list)
+				set_piece_hex(p, REINFORCEMENTS)
+	for (let p of friendly_units())
+		if (piece_hex(p) === BLOWN + game.turn)
+			set_piece_hex(p, BLOWN)
+}
+
 function goto_movement_phase() {
 	log("")
 	log("Movement Phase")
@@ -936,11 +1029,6 @@ function goto_movement_phase() {
 	game.active = P1
 	game.state = "movement"
 	game.remain = 0
-
-	for (let info of data.reinforcements)
-		if (info.turn === game.turn)
-			for (let p of info.list)
-				set_piece_hex(p, REINFORCEMENTS)
 }
 
 function next_movement() {
@@ -1398,6 +1486,7 @@ function setup_june_15() {
 	setup_piece("Prussian", "I Detachment (Pirch)", 1217)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
 
+	bring_on_reinforcements()
 	goto_movement_phase()
 }
 
@@ -1433,6 +1522,7 @@ function setup_june_16() {
 	setup_piece("Prussian", "IV Corps (Bulow)", 3)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
 
+	bring_on_reinforcements()
 	goto_detachment_placement_step()
 }
 
