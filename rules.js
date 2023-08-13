@@ -609,6 +609,17 @@ function goto_withdrawal() {
 	game.remain = 0
 }
 
+/*
+function resume_withdrawal() {
+	game.state = "withdrawal"
+	update_zoc()
+	for (let p of friendly_corps())
+		if (piece_is_in_enemy_zoc(p))
+			return
+	withdrawal_pass()
+}
+*/
+
 function next_withdrawal() {
 	game.state = "withdrawal"
 	if (game.remain === 0)
@@ -624,6 +635,13 @@ function end_withdrawal() {
 states.withdrawal = {
 	prompt() {
 		prompt("Withdrawal.")
+
+		update_zoc()
+
+		for (let p of friendly_corps())
+			if (piece_is_in_enemy_zoc(p))
+				gen_action_piece(p)
+
 		view.actions.pass = 1
 	},
 	piece(p) {
@@ -642,12 +660,37 @@ states.withdrawal = {
 	},
 }
 
+function blow_unit(p, n) {
+	log("Blown unit " + p)
+	set_piece_hex(p, game.turn + n)
+	set_piece_mode(p, 0)
+}
+
 states.withdrawal_to = {
 	prompt() {
 		prompt("Withdrawal to.")
-		view.actions.next = 1
+
+		update_zoc()
+
+		let list = search_withdrawal(piece_hex(game.who))
+		if (list.length > 0)
+			view.actions.hex = list
+		else
+			view.actions.blow = 1
+
+		gen_action_piece(game.who)
 	},
-	next() {
+	piece(p) {
+		pop_undo()
+	},
+	blow() {
+		blow_unit(game.who, 2)
+		game.who = -1
+		next_withdrawal()
+	},
+	hex(x) {
+		set_piece_hex(game.who, x)
+		game.who = -1
 		next_withdrawal()
 	},
 }
@@ -897,6 +940,47 @@ function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_ca
 		move_cost[here-1000] = mp
 		queue.push(here)
 	}
+}
+
+function search_withdrawal(here) {
+	// Withdraw from ANY enemy unit.
+	let result = []
+	for_each_adjacent(here, from => {
+		if (hex_has_any_piece(from, enemy_units()))
+			search_retreat(result, here, from, 3)
+	})
+	return result
+}
+
+function search_retreat(result, here, from, n) {
+	for_each_adjacent(here, next => {
+		console.log("search retreat", next, here, from)
+
+		// must move further away
+		if (calc_distance(next, from) <= calc_distance(here, from))
+			return
+
+		// can't enter zoc
+		if (is_enemy_zoc(next))
+			return
+
+		// can't enter hex with another corps or enemy detachment
+		if (hex_has_any_piece(next, p1_corps))
+			return
+		if (hex_has_any_piece(next, p2_corps))
+			return
+		if (hex_has_any_piece(next, enemy_detachments()))
+			return
+
+		// can't cross river
+		if (is_river(here, next))
+			return
+
+		if (n > 1)
+			search_retreat(result, next, from, n - 1)
+		else
+			set_add(result, next)
+	})
 }
 
 // === === ATTACK PHASE === ===
