@@ -135,6 +135,11 @@ main {
 
 .large.selected, .small.selected {
 	box-shadow: 0 0 0 1px #444, 0 0 0 4px yellow;
+	z-index: 102;
+}
+
+.large.target, .small.target {
+	box-shadow: 0 0 0 1px #444, 0 0 0 4px red;
 	z-index: 101;
 }
 
@@ -214,8 +219,6 @@ main {
 			<div class="menu_separator"></div>
 			<div class="menu_item" onclick="send_save()">&#x1F41E; Save</div>
 			<div class="menu_item" onclick="send_restore()">&#x1F41E; Restore</div>
-			<div class="menu_separator"></div>
-			<div class="menu_item" onclick="send_restart('June 16-18')">&#x26a0; Restart</div>
 		</div>
 	</div>
 	<div class="icon_button" onclick="toggle_pieces()"><img src="/images/earth-africa-europe.svg"></div>

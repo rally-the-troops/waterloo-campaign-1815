@@ -203,6 +203,7 @@ function on_update() {
 	for (let id = 0; id < piece_count; ++id) {
 		let hex = view.pieces[id] >> 1
 		if (hex >= first_hex) {
+			// ON MAP
 			ui.pieces[id].classList.remove("hide")
 			ui.pieces[id].classList.toggle("flip", (view.pieces[id] & 1) === 1)
 			let x = ui.hex_x[hex] - ui.stack[hex] * 18
@@ -217,7 +218,17 @@ function on_update() {
 			}
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
+		} else if (hex === 100 || hex === 101) {
+			// AVAILABLE DETACHMENTS
+			ui.pieces[id].classList.remove("hide")
+			ui.pieces[id].classList.remove("flip")
+			let x = 600 + 20 + ui.stack[hex] * 50
+			let y = 1650 + 20 + 60 * (hex-100)
+			ui.stack[hex] += 1
+			ui.pieces[id].style.top = y + "px"
+			ui.pieces[id].style.left = x + "px"
 		} else if (hex >= 1) {
+			// ON TURN TRACK
 			ui.pieces[id].classList.remove("hide")
 			ui.pieces[id].classList.remove("flip")
 			let x = TURN_X + hex * TURN_DX - ui.stack[hex] * 18
@@ -233,10 +244,13 @@ function on_update() {
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
 		} else {
+			// TODO: ENTRY HEXES
+			// ELIMINATED
 			ui.pieces[id].classList.add("hide")
 		}
 		ui.pieces[id].classList.toggle("action", is_action("piece", id))
 		ui.pieces[id].classList.toggle("selected", view.who === id)
+		ui.pieces[id].classList.toggle("target", view.target === id)
 	}
 
 	if (view.roads) {

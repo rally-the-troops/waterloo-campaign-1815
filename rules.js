@@ -20,6 +20,22 @@ var game = null
 var view = null
 var states = {}
 
+const ELIMINATED = 0
+const AVAILABLE_P1 = 100
+const AVAILABLE_P2 = 101
+
+const ENTRY_A = 4006
+const ENTRY_B = 4015
+const ENTRY_C = 4025
+const ENTRY_D1 = 1017
+const ENTRY_D2 = 1018
+
+const OFFMAP_A = 4106
+const OFFMAP_B = 4115
+const OFFMAP_C = 4125
+const OFFMAP_D = 917
+
+const NAPOLEON_HQ = data.pieces.findIndex(pc => pc.name === "Napoleon HQ")
 const OLD_GUARD = data.pieces.findIndex(pc => pc.name === "Old Guard")
 const GRAND_BATTERY = data.pieces.findIndex(pc => pc.name === "Grand Battery")
 const HILL_1 = data.pieces.findIndex(pc => pc.name === "II Corps (Hill*)")
@@ -109,6 +125,13 @@ function hex_has_any_piece(x, list) {
 	for (let p of list)
 		if (piece_hex(p) === x)
 			return true
+	return false
+}
+
+function piece_is_in_zoc_of_hex(p, x) {
+	let y = piece_hex(p)
+	if (is_map_hex(y) && calc_distance(x, y) === 1)
+		return !is_river(x, y)
 	return false
 }
 
@@ -206,6 +229,7 @@ function is_enemy_zoc_or_zoi(x) { return game.active !== P1 ? is_p1_zoc_or_zoi(x
 function update_zoc_imp(zoc, zoi, units) {
 	for (let p of units) {
 		let a = piece_hex(p)
+		zoc_cache[a - 1000] |= zoc
 		for_each_adjacent(a, b => {
 			if (!is_river(a, b)) {
 				zoc_cache[b - 1000] |= zoc
@@ -450,23 +474,124 @@ states.cavalry_corps_recovery_step = {
 
 function goto_detachment_placement_step() {
 	game.active = P1
-	game.state = "detachment_placement_step"
+	begin_detachment_placement_step()
+}
+
+function begin_detachment_placement_step() {
 	game.count = 0
+	for (let p of friendly_hqs())
+		game.count |= (1 << p)
+	resume_detachment_placement_step()
+}
+
+function resume_detachment_placement_step() {
+	game.state = "place_detachment_hq"
+	// TODO: no available detachments
+	if (game.count === 0)
+		end_detachment_placement_step()
 }
 
 function end_detachment_placement_step() {
 	if (game.active === P1) {
 		game.active = P2
-		game.count = 0
+		begin_detachment_placement_step()
 	} else {
 		goto_detachment_recall_step()
 	}
 }
 
-states.detachment_placement_step = {
+states.place_detachment_hq = {
 	prompt() {
-		prompt("Detachment Placement Step.")
-		view.actions.next = 1
+		prompt("Place Detachment: Select HQ.")
+		for (let p of friendly_hqs())
+			if (game.count & (1 << p))
+				gen_action_piece(p)
+		view.actions.pass = 1
+	},
+	piece(p) {
+		push_undo()
+		game.target = p
+		game.count ^= (1 << p)
+		game.state = "place_detachment_who"
+	},
+	pass() {
+		end_detachment_placement_step()
+	},
+}
+
+states.place_detachment_who = {
+	prompt() {
+		prompt("Place Detachment: Select detachment to place.")
+		gen_action_piece(game.target)
+		for (let p of friendly_detachments()) {
+			let x = piece_hex(p)
+			if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
+				if (data.pieces[p].side === data.pieces[game.target].side) {
+					// SPECIAL: french grand battery and old guard
+					if (p === GRAND_BATTERY || p === OLD_GUARD) {
+						if (game.target === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
+							gen_action_piece(p)
+					} else {
+						gen_action_piece(p)
+					}
+				}
+			}
+		}
+	},
+	piece(p) {
+		if (p === game.target) {
+			pop_undo()
+			return
+		}
+		game.who = p
+		game.state = "place_detachment_where"
+	},
+	next() {
+		end_detachment_placement_step()
+	},
+}
+
+states.place_detachment_where = {
+	prompt() {
+		prompt("Place Detachment: ...")
+		gen_action_piece(game.who)
+
+		if (game.who === GRAND_BATTERY) {
+			return
+		}
+
+		if (game.who === OLD_GUARD) {
+			return
+		}
+
+		update_zoc()
+		move_seen.fill(0)
+
+		search_detachment(piece_hex(game.target), piece_command_range(game.target))
+		if (!piece_mode(game.target))
+			search_detachment_road(piece_hex(game.target), piece_command_range(game.target) * 2)
+
+		for (let p of data.pieces[game.who].parent)
+			if (piece_is_on_map(p))
+				search_detachment(piece_hex(p), 4)
+
+		for (let row = 0; row < data.map.rows; ++row) {
+			for (let col = 0; col < data.map.cols; ++col) {
+				let x = 1000 + row * 100 + col
+				if (move_seen[x-1000] && !is_friendly_zoc_or_zoi(x))
+					gen_action_hex(x)
+			}
+		}
+	},
+	piece(p) {
+		game.who = -1
+		game.state = "place_detachment_who"
+	},
+	hex(x) {
+		set_piece_hex(game.who, x)
+		game.target = -1
+		game.who = -1
+		resume_detachment_placement_step()
 	},
 	next() {
 		end_detachment_placement_step()
@@ -491,9 +616,21 @@ function end_detachment_recall_step() {
 states.detachment_recall_step = {
 	prompt() {
 		prompt("Detachment Recall Step.")
-		view.actions.next = 1
+
+		for (let p of friendly_detachments())
+			if (piece_is_on_map(p))
+				gen_action_piece(p)
+
+		view.actions.pass = 1
 	},
-	next() {
+	piece(p) {
+		push_undo()
+		if (game.active === P1)
+			set_piece_hex(p, AVAILABLE_P1)
+		else
+			set_piece_hex(p, AVAILABLE_P2)
+	},
+	pass() {
 		end_detachment_recall_step()
 	},
 }
@@ -788,15 +925,16 @@ states.movement_to = {
 		if (!(move_seen[x-1000] & 2))
 			set_piece_mode(game.who, 1)
 
-		// TODO: flip all enemy inf in game.who's zoc
+		// flip all enemy inf in zoc
+		for (let p of enemy_infantry_corps())
+			if (piece_is_in_zoc_of_hex(p, x))
+				set_piece_mode(p, 1)
 
 		game.who = -1
 		//game.state = "movement"
 		next_movement()
 	},
 }
-
-// OFF ROAD MOVEMENT SEARCH
 
 function can_move_into(here, next, hq_hex, hq_range, is_cav) {
 	// can't go off-map
@@ -874,6 +1012,39 @@ function search_move(p) {
 					search_move_road(x, m * 2, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 		}
 	}
+}
+
+function can_trace_detachment(here, next) {
+	if (is_enemy_zoc_or_zoi(next))
+		return false
+	// TODO RULES - rivers block detachment placement?
+	if (is_river(here, next))
+		return false
+	return true
+}
+
+function search_detachment(start, range) {
+	move_cost.fill(0)
+	move_cost[start-1000] = range
+	move_seen[start-1000] = 1
+	let queue = [ start ]
+	while (queue.length > 0) {
+		let here = queue.shift()
+		for_each_adjacent(here, next => {
+			if (can_trace_detachment(here, next)) {
+				let range = move_cost[here-1000] - 1
+				move_seen[next-1000] = 1
+				if (range > move_cost[next-1000]) {
+					move_cost[next-1000] = range
+					queue.push(next)
+				}
+			}
+		})
+	}
+}
+
+function search_detachment_road(start, range) {
+	// TODO
 }
 
 function search_move_offroad(start, ma, hq_hex, hq_range, is_cav) {
@@ -994,6 +1165,75 @@ function goto_attack_phase() {
 	game.remain = 0
 }
 
+states.attack = {
+	prompt() {
+		prompt("Attack!")
+		update_zoc()
+		for (let p of friendly_corps())
+			if (piece_is_in_enemy_zoc(p))
+				gen_action_piece(p)
+		view.actions.pass = 1
+	},
+	piece(p) {
+		push_undo()
+		game.who = p
+		game.state = "attack_who"
+	},
+	pass() {
+	},
+}
+
+states.attack_who = {
+	prompt() {
+		prompt("Attack!")
+		let here = piece_hex(game.who)
+		for (let p of enemy_units())
+			if (piece_is_in_zoc_of_hex(p, here))
+				gen_action_piece(p)
+		gen_action_piece(game.who)
+	},
+	piece(p) {
+		if (p === game.who) {
+			pop_undo()
+			return
+		}
+		log("Attacked " + p)
+		game.target = p
+		game.state = "attack_support"
+		game.count = 0
+	},
+}
+
+states.attack_support = {
+	prompt() {
+		prompt("Attack - add supporting stars!")
+		view.actions.next = 1
+	},
+	piece(p) {
+	},
+	next() {
+		game.state = "defend_support"
+	},
+}
+
+states.defend_support = {
+	prompt() {
+		prompt("Defend - add supporting stars!")
+		view.actions.next = 1
+	},
+	piece(p) {
+	},
+	next() {
+		roll_attack()
+	},
+}
+
+function roll_attack() {
+}
+
+// add stars
+// _may_ spend fresh cav to add support from stars
+
 // === SETUP ===
 
 function setup_piece(side, name, hex, mode = 0) {
@@ -1086,8 +1326,14 @@ exports.setup = function (seed, scenario, options) {
 		remain: 0,
 		pieces: new Array(data.pieces.length).fill(0),
 		who: -1,
+		target: -1,
 		count: 0,
 	}
+
+	for (let p of p1_det)
+		set_piece_hex(p, AVAILABLE_P1)
+	for (let p of p2_det)
+		set_piece_hex(p, AVAILABLE_P2)
 
 	if (scenario === "June 15" || scenario === "June 15 (no special rules)")
 		setup_june_15()
@@ -1128,6 +1374,7 @@ exports.view = function (state, player) {
 		remain: game.remain,
 		pieces: game.pieces,
 		who: game.who,
+		target: game.target,
 	}
 
 	if (game.state === "game_over") {
