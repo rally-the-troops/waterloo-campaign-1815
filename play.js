@@ -58,6 +58,7 @@ const REINF_OFFSET = {
 	1018: [ -hex_dx/2, hex_dy * 3/4 ],
 	1020: [ -hex_dx/2, hex_dy * 3/4 ],
 	3000: [ -hex_dx/2, 0 ],
+	3241: [ hex_dx/2, 0 ],
 	4015: [ 0, -hex_dy * 3/8 ],
 }
 

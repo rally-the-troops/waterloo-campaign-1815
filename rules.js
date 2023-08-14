@@ -791,13 +791,13 @@ states.detachment_recall_step = {
 			if (piece_is_on_map(p))
 				gen_action_piece(p)
 
-		view.actions.pass = 1
+		view.actions.end_step = 1
 	},
 	piece(p) {
 		push_undo()
 		recall_detachment(p)
 	},
-	pass() {
+	end_step() {
 		end_detachment_recall_step()
 	},
 }
@@ -906,39 +906,42 @@ states.battle_formation = {
 
 // === H: WITHDRAWAL ===
 
+function can_withdraw_any() {
+	update_zoc()
+	for (let p of friendly_corps())
+		if (piece_is_in_enemy_zoc(p))
+			return true
+	return false
+}
+
 function goto_withdrawal() {
 	log("Withdrawal.")
 	game.active = P1
 	game.state = "withdrawal"
 	game.remain = 0
-	resume_withdrawal()
+	if (!can_withdraw_any())
+		pass_withdrawal()
 }
 
-function resume_withdrawal() {
+function next_withdrawal() {
 	game.state = "withdrawal"
-	update_zoc()
-	for (let p of friendly_corps())
-		if (piece_is_in_enemy_zoc(p))
-			return
-	pass_withdrawal()
+	if (game.remain === 0) {
+		set_next_player()
+		if (!can_withdraw_any())
+			pass_withdrawal()
+	} else if (--game.remain === 0) {
+		end_withdrawal()
+	}
 }
 
 function pass_withdrawal() {
-	log(game.active + " passed.")
+	log(game.active + " passed withdrawal.")
 	if (game.remain > 0) {
 		end_withdrawal()
 	} else {
 		set_next_player()
 		game.remain = 3
 	}
-}
-
-function next_withdrawal() {
-	set_next_player()
-	if (game.remain === 0)
-		resume_withdrawal()
-	else if (--game.remain === 0)
-		end_withdrawal()
 }
 
 function end_withdrawal() {
@@ -960,8 +963,13 @@ states.withdrawal = {
 		game.state = "withdrawal_to"
 	},
 	pass() {
-		clear_undo()
-		pass_withdrawal()
+		log(game.active + " passed withdrawal.")
+		if (game.remain > 0) {
+			end_withdrawal()
+		} else {
+			set_next_player()
+			game.remain = 3
+		}
 	},
 }
 
@@ -1030,23 +1038,28 @@ states.movement = {
 
 		update_zoc()
 
-		for (let p of friendly_cavalry_corps())
-			if (piece_is_not_in_enemy_cav_zoc(p))
-				gen_action_piece(p)
-
-		for (let p of friendly_infantry_corps())
-			if (piece_is_not_in_enemy_zoc(p))
-				gen_action_piece(p)
-
+		let has_reinf = false
 		for (let info of data.reinforcements) {
 			if (info.turn === game.turn && info.side === game.active) {
 				for (let p of info.list) {
 					if (!piece_is_on_map(p)) {
+						has_reinf = true
+						console.log("rein", p)
 						gen_action_piece(p)
 						break
 					}
 				}
 			}
+		}
+
+		console.log("mprom", game.remain, has_reinf)
+		if (game.remain === 0 || !has_reinf) {
+			for (let p of friendly_cavalry_corps())
+				if (piece_is_not_in_enemy_cav_zoc(p))
+					gen_action_piece(p)
+			for (let p of friendly_infantry_corps())
+				if (piece_is_not_in_enemy_zoc(p))
+					gen_action_piece(p)
 		}
 
 		view.actions.pass = 1
@@ -1057,12 +1070,26 @@ states.movement = {
 		game.state = "movement_to"
 	},
 	pass() {
-		clear_undo()
+		log(game.active + " passed movement.")
 		if (game.remain > 0) {
 			end_movement()
 		} else {
+			update_zoc()
 			set_next_player()
 			game.remain = roll_die()
+			log("Rolled D" + game.remain)
+			
+			let n = 0
+			for (let p of friendly_corps()) {
+				if (piece_is_not_in_enemy_zoc_or_zoi(p))
+					++n
+				if (piece_hex(p) === REINFORCEMENTS)
+					++n
+			}
+
+			log(n + " Corps not in ZOC/ZOI")
+
+			game.remain += n
 		}
 	},
 }
@@ -1111,7 +1138,6 @@ states.movement_to = {
 				set_piece_mode(p, 1)
 
 		game.who = -1
-		//game.state = "movement"
 		next_movement()
 	},
 }
@@ -1356,21 +1382,26 @@ function search_withdrawal(here) {
 	let from_list = []
 	for_each_adjacent(here, from => {
 		if (hex_has_any_piece(from, enemy_units()))
-			from_list.push(here)
+			from_list.push(from)
 	})
-	return search_retreat(result, here, from_list, 3)
+	console.log("RETREAT FROM ALL", from_list)
+	let result = []
+	search_retreat(result, here, from_list, 3)
+	return result
 }
 
 function search_retreat(result, here, from_list, n) {
 	for_each_adjacent(here, next => {
-		// must move further away
-		for (let from of from_list)
-			if (calc_distance(next, from) <= calc_distance(here, from))
-				return
-
 		// can't enter zoc
 		if (is_enemy_zoc(next))
 			return
+
+		// must move further away
+		for (let from of from_list) {
+			console.log("->", here, next, calc_distance(from,here), calc_distance(from,next))
+			if (calc_distance(from, next) <= calc_distance(from, here))
+				return
+		}
 
 		// can't enter hex with another corps or enemy detachment
 		if (hex_has_any_piece(next, p1_corps))
@@ -1513,8 +1544,8 @@ function setup_june_15() {
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
 
 	bring_on_reinforcements()
-	// TODO goto_movement_phase()
-	goto_command_phase()
+	// XXX goto_command_phase()
+	goto_movement_phase()
 }
 
 function setup_june_16() {
