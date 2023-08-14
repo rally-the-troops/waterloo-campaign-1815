@@ -108,6 +108,8 @@ let ui = {
 		document.getElementById("prussian_detachment_6"),
 	],
 	stack: new Array(last_hex+1).fill(0),
+	turn: document.getElementById("marker_turn"),
+	remain: document.getElementById("marker_remain"),
 }
 
 function toggle_pieces() {
@@ -333,9 +335,15 @@ function on_update() {
 		}
 	}
 
+	ui.turn.style.left = (40 + TURN_X + (view.turn-1) * TURN_DX) + "px"
+	ui.turn.classList.toggle("flip", view.rain > 0)
+
+	ui.remain.style.left = (109 + (view.remain % 10) * 47.5 | 0) + "px"
+	ui.remain.classList.toggle("flip", view.remain > 9)
+
 	action_button("roll", "Roll")
 	action_button("next", "Next")
-	action_button("done", "Done")
+	action_button("end_step", "End step")
 	action_button("pass", "Pass")
 	action_button("undo", "Undo")
 }

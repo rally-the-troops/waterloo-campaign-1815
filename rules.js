@@ -1,7 +1,7 @@
 "use strict"
 
 // TODO: recall grand battery at end of turn
-// TODO: recall grand battery if alon
+// TODO: recall grand battery if alone
 
 const FRENCH = "French"
 const COALITION = "Coalition"
@@ -45,19 +45,69 @@ const GRAND_BATTERY = find_piece("Grand Battery")
 const HILL_1 = find_piece("II Corps (Hill*)")
 const HILL_2 = find_piece("II Corps (Hill**)")
 
-const brussels_couillet_road_x3 = []
-for (let a of data.map.brussels_couillet_road) {
-	set_add(brussels_couillet_road_x3, a)
-	for_each_adjacent(a, (b) => {
-		set_add(brussels_couillet_road_x3, b)
-		for_each_adjacent(b, (c) => {
-			set_add(brussels_couillet_road_x3, c)
-			for_each_adjacent(c, (d) => {
-				set_add(brussels_couillet_road_x3, d)
-			})
-		})
-	})
+function is_map_hex(x) {
+	if (x >= 1000 && x <= 4041)
+		return x % 100 <= 41
+	return false
 }
+
+function calc_distance(a, b) {
+	let ac = a % 100
+	let bc = b % 100
+	let ay = a / 100 | 0
+	let by = b / 100 | 0
+	let ax = ac - (ay >> 1)
+	let bx = bc - (by >> 1)
+	let az = -ax - ay
+	let bz = -bx - by
+	return max(abs(bx-ax), abs(by-ay), abs(bz-az))
+}
+
+const adjacent_x1 = [
+	[-101,-100,-1,1,99,100],
+	[-100,-99,-1,1,100,101]
+]
+
+function for_each_adjacent(x, f) {
+	for (let dx of adjacent_x1[x / 100 & 1]) {
+		let nx = x + dx
+		if (is_map_hex(nx))
+			f(nx)
+	}
+}
+
+const within_x3 = [
+	[
+		-302,-301,-300,-299,
+		-202,-201,-200,-199,-198,
+		-103,-102,-101,-100,-99,-98,
+		-3,-2,-1,0,1,2,3,
+		97,98,99,100,101,102,
+		198,199,200,201,202,
+		298,299,300,301
+	],
+	[
+		-301,-300,-299,-298,
+		-202,-201,-200,-199,-198,
+		-102,-101,-100,-99,-98,-97,
+		-3,-2,-1,0,1,2,3,
+		98,99,100,101,102,103,
+		198,199,200,201,202,
+		299,300,301,302
+	]
+]
+
+function for_each_within_x3(x, f) {
+	for (let dx of within_x3[x / 100 & 1]) {
+		let nx = x + dx
+		if (is_map_hex(nx))
+			f(nx)
+	}
+}
+
+const brussels_couillet_road_x3 = []
+for (let a of data.map.brussels_couillet_road)
+	for_each_within_x3(a, b => set_add(brussels_couillet_road_x3, b))
 
 function make_piece_list(f) {
 	let list = []
@@ -314,56 +364,6 @@ function piece_is_on_map(p) {
 	return is_map_hex(x)
 }
 
-function is_map_hex(x) {
-	if (x >= 1000 && x <= last_hex)
-		return x % 100 <= 41
-	return false
-}
-
-function calc_distance(a, b) {
-	let ac = a % 100
-	let bc = b % 100
-	let ay = a / 100 | 0
-	let by = b / 100 | 0
-	let ax = ac - (ay >> 1)
-	let bx = bc - (by >> 1)
-	let az = -ax - ay
-	let bz = -bx - by
-	return max(abs(bx-ax), abs(by-ay), abs(bz-az))
-}
-
-function for_each_adjacent(hex, fn) {
-	let row = hex / 100 | 0
-	let col = hex % 100
-	if (col < 41)
-		fn(hex + 1)
-	if (col > 0)
-		fn(hex - 1)
-	if (row & 1) {
-		if (row < 40) {
-			if (col < 41)
-				fn(hex + 101)
-			fn(hex + 100)
-		}
-		if (row > 10) {
-			fn(hex - 100)
-			if (col < 41)
-				fn(hex - 99)
-		}
-	} else {
-		if (row < 40) {
-			fn(hex + 100)
-			if (col > 0)
-				fn(hex + 99)
-		}
-		if (row > 10) {
-			if (col > 0)
-				fn(hex - 101)
-			fn(hex - 100)
-		}
-	}
-}
-
 function set_next_player() {
 	game.active = (game.active === P1) ? P2 : P1
 }
@@ -444,7 +444,7 @@ states.place_hq = {
 				done = false
 		}
 		if (done)
-			view.actions.next = 1
+			view.actions.end_step = 1
 	},
 	piece(p) {
 		if (piece_is_on_map(p)) {
@@ -455,22 +455,9 @@ states.place_hq = {
 			game.state = "place_hq_where"
 		}
 	},
-	next() {
+	end_step() {
 		end_hq_placement_step()
 	},
-}
-
-function gen_place_hq(from, here, n) {
-	for_each_adjacent(here, next => {
-		if (calc_distance(next, from) <= calc_distance(here, from))
-			return
-		if (n > 1)
-			gen_place_hq(from, next, n - 1)
-		// TODO RULES: as the crow flies or must trace path?
-		if (is_enemy_zoc_or_zoi(next) || hex_has_any_piece(next, friendly_hqs()))
-			return
-		gen_action_hex(next)
-	})
 }
 
 states.place_hq_where = {
@@ -486,9 +473,10 @@ states.place_hq_where = {
 		for (let p of friendly_units()) {
 			let x = piece_hex(p)
 			if (is_map_hex(x) && pieces_are_same_side(p, game.who)) {
-				if (!is_enemy_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_hqs()))
-					gen_action_hex(x)
-				gen_place_hq(x, x, 3)
+				for_each_within_x3(x, next => {
+					if (!is_enemy_zoc_or_zoi(next) && !hex_has_any_piece(next, friendly_hqs()))
+						gen_action_hex(next)
+				})
 			}
 		}
 
@@ -547,7 +535,7 @@ states.return_blown_unit = {
 			}
 		}
 		if (done)
-			view.actions.next = 1
+			view.actions.end_step = 1
 	},
 	piece(p) {
 		push_undo()
@@ -561,7 +549,7 @@ states.return_blown_unit = {
 			set_piece_hex(p, ELIMINATED)
 		}
 	},
-	next() {
+	end_step() {
 		end_blown_unit_return_step()
 	},
 }
@@ -680,10 +668,7 @@ states.place_detachment_hq = {
 		for (let p of friendly_hqs())
 			if (game.count & (1 << p))
 				gen_action_piece(p)
-		if (game.count === 0)
-			view.actions.next = 1
-		else
-			view.actions.pass = 1
+		view.actions.end_step = 1
 	},
 	piece(p) {
 		push_undo()
@@ -691,10 +676,7 @@ states.place_detachment_hq = {
 		game.count ^= (1 << p)
 		game.state = "place_detachment_who"
 	},
-	next() {
-		end_detachment_placement_step()
-	},
-	pass() {
+	end_step() {
 		end_detachment_placement_step()
 	},
 }
@@ -730,20 +712,6 @@ states.place_detachment_who = {
 		game.who = p
 		game.state = "place_detachment_where"
 	},
-	next() {
-		end_detachment_placement_step()
-	},
-}
-
-function gen_place_old_guard(from, here, n) {
-	for_each_adjacent(here, next => {
-		if (calc_distance(next, from) <= calc_distance(here, from))
-			return
-		if (n > 1)
-			gen_place_old_guard(from, next, n - 1)
-		if (!is_enemy_zoc(next) && is_empty_hex(next))
-			gen_action_hex(next)
-	})
 }
 
 states.place_detachment_where = {
@@ -762,29 +730,21 @@ states.place_detachment_where = {
 		}
 
 		if (game.who === OLD_GUARD) {
-			gen_place_old_guard(piece_hex(NAPOLEON_HQ), piece_hex(NAPOLEON_HQ), 3)
+			for_each_within_x3(piece_hex(NAPOLEON_HQ), next => {
+				if (!is_enemy_zoc(next) && is_empty_hex(next))
+					gen_action_hex(next)
+			})
 			return
 		}
 
 		update_zoc()
-		move_seen.fill(0)
 
-		search_detachment(piece_hex(game.target), piece_command_range(game.target))
-		if (!piece_mode(game.target))
-			search_detachment_road(piece_hex(game.target), piece_command_range(game.target) * 2)
-
-		for (let p of data.pieces[game.who].parent)
-			if (piece_is_on_map(p))
-				search_detachment(piece_hex(p), 4)
+		search_detachment(game.who, game.target)
 
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				if (
-					move_seen[x-1000] &&
-					!is_friendly_zoc_or_zoi(x) &&
-					!hex_has_any_piece(x, friendly_detachments())
-				)
+				if (move_seen[x-1000] && !is_friendly_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_detachments()))
 					gen_action_hex(x)
 			}
 		}
@@ -798,9 +758,6 @@ states.place_detachment_where = {
 		game.target = -1
 		game.who = -1
 		game.state = "place_detachment_hq"
-	},
-	next() {
-		end_detachment_placement_step()
 	},
 }
 
@@ -950,26 +907,36 @@ states.battle_formation = {
 // === H: WITHDRAWAL ===
 
 function goto_withdrawal() {
+	log("Withdrawal.")
 	game.active = P1
 	game.state = "withdrawal"
 	game.remain = 0
+	resume_withdrawal()
 }
 
-/*
 function resume_withdrawal() {
 	game.state = "withdrawal"
 	update_zoc()
 	for (let p of friendly_corps())
 		if (piece_is_in_enemy_zoc(p))
 			return
-	withdrawal_pass()
+	pass_withdrawal()
 }
-*/
+
+function pass_withdrawal() {
+	log(game.active + " passed.")
+	if (game.remain > 0) {
+		end_withdrawal()
+	} else {
+		set_next_player()
+		game.remain = 3
+	}
+}
 
 function next_withdrawal() {
-	game.state = "withdrawal"
+	set_next_player()
 	if (game.remain === 0)
-		set_next_player()
+		resume_withdrawal()
 	else if (--game.remain === 0)
 		end_withdrawal()
 }
@@ -981,13 +948,10 @@ function end_withdrawal() {
 states.withdrawal = {
 	prompt() {
 		prompt("Withdrawal.")
-
 		update_zoc()
-
 		for (let p of friendly_corps())
 			if (piece_is_in_enemy_zoc(p))
 				gen_action_piece(p)
-
 		view.actions.pass = 1
 	},
 	piece(p) {
@@ -997,27 +961,19 @@ states.withdrawal = {
 	},
 	pass() {
 		clear_undo()
-		if (game.remain > 0) {
-			end_withdrawal()
-		} else {
-			set_next_player()
-			game.remain = 3
-		}
+		pass_withdrawal()
 	},
 }
 
 states.withdrawal_to = {
 	prompt() {
-		prompt("Withdrawal to.")
-
+		prompt("Withdraw " + data.pieces[game.who].name + ".")
 		update_zoc()
-
 		let list = search_withdrawal(piece_hex(game.who))
 		if (list.length > 0)
 			view.actions.hex = list
 		else
 			view.actions.blow = 1
-
 		gen_action_piece(game.who)
 	},
 	piece(p) {
@@ -1191,8 +1147,7 @@ function can_move_into(here, next, hq_hex, hq_range, is_cav) {
 		return false
 
 	if (is_cav) {
-		// Cavalry beginning move in Infantry ZoC may only move to empty hex not in ZoC
-		// TODO: starting in detachment zoc?
+		// Cavalry beginning move in non-Cavalry ZoC may only move to empty hex not in ZoC
 		if (is_enemy_zoc(here) && (is_enemy_zoc(next) || !is_empty_hex(next)))
 			return false
 	}
@@ -1231,6 +1186,84 @@ function find_reinforcement_hex(who) {
 	return 0
 }
 
+function can_trace_detachment(here, next) {
+	if (is_enemy_zoc_or_zoi(next))
+		return false
+	if (is_river(here, next))
+		return false
+	return true
+}
+
+function search_detachment(who, hq) {
+	move_seen.fill(0)
+
+	search_detachment_normal(piece_hex(hq), piece_command_range(hq))
+
+	if (!piece_mode(hq))
+		if (is_road_hex(piece_hex(hq)))
+			search_detachment_road(piece_hex(hq), piece_command_range(hq) * 2)
+
+	for (let pp of data.pieces[who].parent)
+		if (piece_is_on_map(pp))
+			search_detachment_normal(piece_hex(pp), 4)
+}
+
+function search_detachment_normal(start, range) {
+	move_cost.fill(0)
+	move_cost[start-1000] = range
+	move_seen[start-1000] = 1
+	let queue = [ start ]
+	while (queue.length > 0) {
+		let here = queue.shift()
+		for_each_adjacent(here, next => {
+			if (can_trace_detachment(here, next)) {
+				let mp = move_cost[here-1000] - 1
+				move_seen[next-1000] = 1
+				if (mp > move_cost[next-1000]) {
+					move_cost[next-1000] = mp
+					queue.push(next)
+				}
+			}
+		})
+	}
+}
+
+function search_detachment_road(start, range) {
+	move_cost.fill(0)
+	move_cost[start-1000] = range
+	move_seen[start-1000] = 1
+	let queue = [ start ]
+	while (queue.length > 0) {
+		let here = queue.shift()
+		for (let [road_id, k] of data_roads[here-1000]) {
+			let road = data.map.roads[road_id]
+			if (k + 1 < road.length)
+				search_detachment_road_segment(queue, road, k, 1)
+			if (k > 0)
+				search_detachment_road_segment(queue, road, k, -1)
+		}
+	}
+}
+
+function search_detachment_road_segment(queue, road, cur, dir) {
+	let here = road[cur]
+	let mp = move_cost[here-1000]
+	cur += dir
+	while (mp > 0 && cur >= 0 && cur < road.length) {
+		let next = road[cur]
+		if (!can_trace_detachment(here, next))
+			return
+		move_seen[next-1000] = 1
+		here = next
+		cur += dir
+		mp --
+	}
+	if (mp > move_cost[here-1000]) {
+		move_cost[here-1000] = mp
+		queue.push(here)
+	}
+}
+
 function search_move(p) {
 	move_seen.fill(0)
 	let x = piece_hex(p)
@@ -1244,7 +1277,7 @@ function search_move(p) {
 	for (let hq of data.pieces[p].hq) {
 		let hq_hex = piece_hex(hq)
 		if (is_map_hex(hq_hex)) {
-			search_move_offroad(x, m - u, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
+			search_move_normal(x, m - u, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
 			if (!(piece_is_infantry(game.who) && piece_mode(game.who)))
 				if (is_road_hex(x))
 					search_move_road(x, m * 2 - u, hq_hex, piece_command_range(hq), piece_is_cavalry(p))
@@ -1252,40 +1285,7 @@ function search_move(p) {
 	}
 }
 
-function can_trace_detachment(here, next) {
-	if (is_enemy_zoc_or_zoi(next))
-		return false
-	// TODO RULES - rivers block detachment placement?
-	if (is_river(here, next))
-		return false
-	return true
-}
-
-function search_detachment(start, range) {
-	move_cost.fill(0)
-	move_cost[start-1000] = range
-	move_seen[start-1000] = 1
-	let queue = [ start ]
-	while (queue.length > 0) {
-		let here = queue.shift()
-		for_each_adjacent(here, next => {
-			if (can_trace_detachment(here, next)) {
-				let range = move_cost[here-1000] - 1
-				move_seen[next-1000] = 1
-				if (range > move_cost[next-1000]) {
-					move_cost[next-1000] = range
-					queue.push(next)
-				}
-			}
-		})
-	}
-}
-
-function search_detachment_road(start, range) {
-	// TODO
-}
-
-function search_move_offroad(start, ma, hq_hex, hq_range, is_cav) {
+function search_move_normal(start, ma, hq_hex, hq_range, is_cav) {
 	move_cost.fill(0)
 	move_cost[start-1000] = ma
 	let queue = [ start ]
@@ -1332,10 +1332,10 @@ function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_ca
 	let here = road[cur]
 	let mp = move_cost[here-1000]
 	cur += dir
-	while (mp >= 0 && cur >= 0 && cur < road.length) {
+	while (mp > 0 && cur >= 0 && cur < road.length) {
 		let next = road[cur]
 		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
-			break
+			return
 		move_seen[next-1000] |= 1
 		if (!must_flip_zoc(here, next, is_cav))
 			move_seen[next-1000] |= 2
@@ -1352,20 +1352,21 @@ function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_ca
 }
 
 function search_withdrawal(here) {
-	// Withdraw from ANY enemy unit.
-	let result = []
+	// Withdraw from ALL enemy units.
+	let from_list = []
 	for_each_adjacent(here, from => {
 		if (hex_has_any_piece(from, enemy_units()))
-			search_retreat(result, here, from, 3)
+			from_list.push(here)
 	})
-	return result
+	return search_retreat(result, here, from_list, 3)
 }
 
-function search_retreat(result, here, from, n) {
+function search_retreat(result, here, from_list, n) {
 	for_each_adjacent(here, next => {
 		// must move further away
-		if (calc_distance(next, from) <= calc_distance(here, from))
-			return
+		for (let from of from_list)
+			if (calc_distance(next, from) <= calc_distance(here, from))
+				return
 
 		// can't enter zoc
 		if (is_enemy_zoc(next))
@@ -1384,7 +1385,7 @@ function search_retreat(result, here, from, n) {
 			return
 
 		if (n > 1)
-			search_retreat(result, next, from, n - 1)
+			search_retreat(result, next, from_list, n - 1)
 		else
 			set_add(result, next)
 	})
@@ -1512,7 +1513,8 @@ function setup_june_15() {
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
 
 	bring_on_reinforcements()
-	goto_movement_phase()
+	// TODO goto_movement_phase()
+	goto_command_phase()
 }
 
 function setup_june_16() {
@@ -1559,6 +1561,7 @@ exports.setup = function (seed, scenario, options) {
 		active: P1,
 		state: null,
 		turn: 3,
+		rain: 0,
 		remain: 0,
 		pieces: new Array(data.pieces.length).fill(0),
 		who: -1,
@@ -1607,6 +1610,7 @@ exports.view = function (state, player) {
 		actions: null,
 		log: game.log,
 		turn: game.turn,
+		rain: game.rain,
 		remain: game.remain,
 		pieces: game.pieces,
 		who: game.who,
