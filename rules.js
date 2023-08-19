@@ -63,6 +63,10 @@ function calc_distance(a, b) {
 	return max(abs(bx-ax), abs(by-ay), abs(bz-az))
 }
 
+function is_adjacent(a, b) {
+	return is_map_hex(a) && is_map_hex(b) && calc_distance(a, b) === 1 && !is_river(a, b)
+}
+
 const adjacent_x1 = [
 	[-101,-100,-1,1,99,100],
 	[-100,-99,-1,1,100,101]
@@ -133,7 +137,7 @@ const p2_units = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.ty
 function friendly_hqs() { return (game.active === P1) ? p1_hqs : p2_hqs }
 function enemy_hqs() { return (game.active !== P1) ? p1_hqs : p2_hqs }
 function friendly_cavalry_corps() { return (game.active === P1) ? p1_cav : p2_cav }
-function enemy_cavalry_corps() { return (game.active !== P1) ? p1_cav : p2_cavalry_corps }
+function enemy_cavalry_corps() { return (game.active !== P1) ? p1_cav : p2_cav }
 function friendly_infantry_corps() { return (game.active === P1) ? p1_inf : p2_inf }
 function enemy_infantry_corps() { return (game.active !== P1) ? p1_inf : p2_inf }
 function friendly_detachments() { return (game.active === P1) ? p1_det : p2_det }
@@ -170,6 +174,10 @@ function piece_is_infantry(p) {
 	return data.pieces[p].type === "inf"
 }
 
+function piece_is_detachment(p) {
+	return data.pieces[p].type === "det"
+}
+
 function piece_movement_allowance(p) {
 	if (piece_mode(p))
 		return data.pieces[p].mp2
@@ -182,8 +190,16 @@ function piece_command_range(p) {
 	return data.pieces[p].range1
 }
 
-function pieces_are_same_side(a, b) {
+function pieces_are_associated(a, b) {
 	return data.pieces[a].side === data.pieces[b].side
+}
+
+function piece_stars(p) {
+	if (data.pieces[p].type === "hq" && !piece_mode(p))
+		return 0
+	if (data.pieces[p].type === "cav" && piece_mode(p))
+		return 0
+	return data.pieces[p].stars
 }
 
 function is_empty_hex(x) {
@@ -209,12 +225,18 @@ function piece_is_in_zoc_of_hex(p, x) {
 
 function blow_unit(p, n) {
 	if (game.turn + n > 8) {
+		log("Eliminated P" + p)
 		set_piece_hex(p, ELIMINATED)
 	} else {
-		log("Blown unit " + p)
+		log("Blown P" + p)
 		set_piece_hex(p, BLOWN + game.turn + n)
 		set_piece_mode(p, 0)
 	}
+}
+
+function eliminate_unit(p) {
+	log("Eliminated P" + p)
+	set_piece_hex(p, ELIMINATED)
 }
 
 const data_rivers = []
@@ -243,6 +265,10 @@ function is_bridge(a, b) {
 
 function is_road_hexside(a, b) {
 	return set_has(data_road_hexsides, a * 10000 + b)
+}
+
+function is_town_hex(x) {
+	return set_has(data.map.towns, x)
 }
 
 function is_stream_hex(x) {
@@ -472,7 +498,7 @@ states.place_hq_where = {
 		// within 3 of any unit
 		for (let p of friendly_units()) {
 			let x = piece_hex(p)
-			if (is_map_hex(x) && pieces_are_same_side(p, game.who)) {
+			if (is_map_hex(x) && pieces_are_associated(p, game.who)) {
 				for_each_within_x3(x, next => {
 					if (!is_enemy_zoc_or_zoi(next) && !hex_has_any_piece(next, friendly_hqs()))
 						gen_action_hex(next)
@@ -557,7 +583,7 @@ states.return_blown_unit = {
 function can_return_blown_unit(p) {
 	let result = false
 	for (let hq of friendly_hqs()) {
-		if (pieces_are_same_side(p, hq)) {
+		if (pieces_are_associated(p, hq)) {
 			for_each_adjacent(piece_hex(hq), x => {
 				if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
 					return result = true
@@ -574,7 +600,7 @@ states.return_blown_unit_where = {
 		update_zoc()
 
 		for (let hq of friendly_hqs()) {
-			if (pieces_are_same_side(game.who, hq)) {
+			if (pieces_are_associated(game.who, hq)) {
 				for_each_adjacent(piece_hex(hq), x => {
 					if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
 						gen_action_hex(x)
@@ -684,7 +710,7 @@ states.place_detachment_hq = {
 function can_place_detachment(p, hq) {
 	let x = piece_hex(p)
 	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
-		if (pieces_are_same_side(p, hq)) {
+		if (pieces_are_associated(p, hq)) {
 			if (p === GRAND_BATTERY || p === OLD_GUARD) {
 				if (hq === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
 					return true
@@ -1019,6 +1045,8 @@ function goto_movement_phase() {
 	game.state = "movement"
 	game.remain = 0
 }
+
+// TODO: can move or auto-pass
 
 function next_movement() {
 	game.state = "movement"
@@ -1433,6 +1461,22 @@ function goto_attack_phase() {
 	game.remain = 0
 }
 
+// TODO: can attack or auto-pass
+
+function next_attack() {
+	game.state = "attack"
+	game.who = -1
+	game.target = -1
+	if (game.remain === 0)
+		set_next_player()
+	else if (--game.remain === 0)
+		end_attack()
+}
+
+function end_attack() {
+	goto_end_phase()
+}
+
 states.attack = {
 	prompt() {
 		prompt("Attack!")
@@ -1448,7 +1492,35 @@ states.attack = {
 		game.state = "attack_who"
 	},
 	pass() {
+		log(game.active + " passed attack.")
+		if (game.remain > 0) {
+			end_attack()
+		} else {
+			set_next_player()
+			game.remain = roll_die()
+			log("Rolled D" + game.remain)
+		}
 	},
+}
+
+// === ATTACK
+
+function can_attack_cavalry_support(p) {
+	if (p === game.who)
+		return false
+	return is_adjacent(piece_hex(p), piece_hex(game.who))
+}
+
+function can_defend_cavalry_support(p) {
+	if (p === game.target)
+		return false
+	return is_adjacent(piece_hex(p), piece_hex(game.target))
+}
+
+function can_attack_infantry_support(p) {
+	if (p === game.who)
+		return false
+	return is_adjacent(piece_hex(p), piece_hex(game.target))
 }
 
 states.attack_who = {
@@ -1457,6 +1529,7 @@ states.attack_who = {
 		let here = piece_hex(game.who)
 		for (let p of enemy_units())
 			if (piece_is_in_zoc_of_hex(p, here))
+				// TODO: NOT detachment stacked with corps!
 				gen_action_piece(p)
 		gen_action_piece(game.who)
 	},
@@ -1467,40 +1540,270 @@ states.attack_who = {
 		}
 		log("Attacked " + p)
 		game.target = p
-		game.state = "attack_support"
-		game.count = 0
+		begin_attack()
 	},
+}
+
+function begin_attack() {
+	game.count = 0
+	for (let p of friendly_infantry_corps())
+		if (can_attack_infantry_support(p))
+			game.count |= (1 << p)
+	for (let p of friendly_cavalry_corps())
+		if (can_attack_cavalry_support(p) && piece_mode(p))
+			game.count |= (1 << p)
+	for (let p of enemy_cavalry_corps())
+		if (can_defend_cavalry_support(p) && piece_mode(p))
+			game.count |= (1 << p)
+	goto_attack_support()
+}
+
+function goto_attack_support() {
+	game.state = "attack_support"
+	for (let p of friendly_cavalry_corps())
+		if (!(game.count & (1 << p)))
+			if (can_attack_cavalry_support(p))
+				return
+	goto_defend_support()
+}
+
+function goto_defend_support() {
+	set_next_player()
+	game.state = "defend_support"
+	for (let p of friendly_cavalry_corps())
+		if (!(game.count & (1 << p)))
+			if (can_defend_cavalry_support(p))
+				return
+	goto_resolve_attack()
 }
 
 states.attack_support = {
 	prompt() {
-		prompt("Attack - add supporting stars!")
+		prompt("Attack: Commit supporting cavalry.")
+		for (let p of friendly_cavalry_corps())
+			if (!(game.count & (1 << p)))
+				if (can_attack_cavalry_support(p))
+					gen_action_piece(p)
 		view.actions.next = 1
 	},
 	piece(p) {
+		push_undo()
+		game.count |= (1 << p)
 	},
 	next() {
-		game.state = "defend_support"
+		goto_defend_support()
 	},
 }
 
 states.defend_support = {
 	prompt() {
-		prompt("Defend - add supporting stars!")
+		prompt("Defend: Commit supporting cavalry.")
+		for (let p of friendly_cavalry_corps())
+			if (!(game.count & (1 << p)))
+				if (can_defend_cavalry_support(p))
+					gen_action_piece(p)
 		view.actions.next = 1
 	},
 	piece(p) {
+		push_undo()
+		game.count |= (1 << p)
 	},
 	next() {
-		roll_attack()
+		goto_resolve_attack()
 	},
 }
 
-function roll_attack() {
+function log_add_star(n, p, reason) {
+	if (n > 0)
+		log(`+${n} P${p} ${reason}`)
+	return n
 }
 
-// add stars
-// _may_ spend fresh cav to add support from stars
+function goto_resolve_attack() {
+	let stars
+
+	set_next_player() // back to attacking player
+
+	log("ATTACK")
+
+	let a_unit = game.who
+	let d_unit = game.target
+	let a_hex = piece_hex(a_unit)
+	let d_hex = piece_hex(d_unit)
+	let a_drm = 0
+	let d_drm = 0
+
+	// TEC
+	let town = is_town_hex(d_hex)
+	if (town) {
+		log("+1 Defender (Town)")
+		d_drm += 1
+	}
+	if (is_bridge(a_hex, d_hex)) {
+		log("+1 Defender (Bridge)")
+		d_drm += 1
+	}
+
+	// Battle Stars
+
+	// No stars if Cav charging into town
+	if (town && piece_is_cavalry(a_unit)) {
+		log("No stars (Cavalry charging into town)")
+	} else {
+		stars = piece_stars(a_unit)
+		if (stars > 0) {
+			log("+" + stars + " attacking Corps Battle Stars")
+			a_drm += stars
+		}
+	}
+
+	for (let hq of friendly_hqs()) {
+		if (piece_mode(hq) && pieces_are_associated(hq, a_unit)) {
+			let distance = calc_distance(piece_hex(hq), a_hex)
+			if (distance <= piece_command_range(hq)) {
+				log("+" + piece_stars(hq) + " attacking HQ stars")
+				a_drm += piece_stars(hq)
+			}
+		}
+	}
+
+	stars = piece_stars(d_unit)
+	if (stars > 0) {
+		log("+" + stars + " defending unit Battle Stars")
+		d_drm += stars
+	}
+
+	for (let hq of enemy_hqs()) {
+		if (piece_mode(hq) && pieces_are_associated(hq, d_unit)) {
+			let distance = calc_distance(piece_hex(hq), d_hex)
+			if (distance <= piece_command_range(hq)) {
+				log("+" + piece_stars(hq) + " defending HQ stars")
+				d_drm += piece_stars(hq)
+			}
+		}
+	}
+
+	// Fresh Cavalry support
+	if (!town) {
+		for (let p of friendly_cavalry_corps()) {
+			if (!piece_mode(p) && (game.count & (1 << p))) {
+				log("+" + piece_stars(p) + " Cavalry Stars")
+				a_drm += 1
+			}
+		}
+	}
+
+	// Grand battery stacked with attacking or supporting corps
+	let gb_hex = piece_hex(GRAND_BATTERY)
+	for (let p of friendly_corps()) {
+		if (gb_hex === piece_hex(p) && (game.count & (1<<p))) {
+			log("+" + piece_stars(GRAND_BATTERY) + " Grand Battery")
+		}
+	}
+
+	// Attack Support
+	for (let p of friendly_infantry_corps()) {
+		if (game.count & (1 << p)) {
+			log("+1 Infantry Support")
+			a_drm += 1
+		}
+	}
+
+	// Cavalry Support
+	for (let p of friendly_cavalry_corps()) {
+		if (game.count & (1 << p)) {
+			log("+1 attacking Cavalry Support")
+			a_drm += 1
+			set_piece_mode(p, 1)
+		}
+	}
+
+	for (let p of enemy_cavalry_corps()) {
+		if (game.count & (1 << p)) {
+			log("+1 defending Cavalry Support")
+			d_drm += 1
+			set_piece_mode(p, 1)
+		}
+	}
+
+	// Detachments
+	if (piece_is_detachment(d_unit)) {
+		log("+2 attack vs Detachment")
+	}
+
+	// Exhaust all participants
+	set_piece_mode(a_unit, 1)
+	set_piece_mode(d_unit, 1)
+
+	let a_die = roll_die()
+	let d_die = roll_die()
+	let diff = a_die - d_die
+	log("Attacker D" + a_die + " = " + (a_die + a_drm))
+	log("Defender D" + d_die + " = " + (d_die + d_drm))
+
+	if (diff <= -5)
+		goto_eliminated_attacker()
+	else if (diff <= -3)
+		goto_blown_attacker()
+	else if (diff <= 1)
+		goto_retreat_attacker()
+	else if (diff >= 5)
+		goto_eliminated_defender()
+	else if (diff >= 3)
+		goto_blown_defender()
+	else if (diff >= 1)
+		goto_retreat_defender()
+	else
+		goto_stalemate()
+}
+
+function goto_stalemate() {
+	log("Stalemate.")
+	next_attack()
+}
+
+function goto_blown_attacker() {
+	if (piece_is_detachment(game.target)) {
+		goto_retreat_attacker()
+		return
+	}
+	blow_unit(game.who)
+	next_attack()
+}
+
+function goto_blown_defender() {
+	if (piece_is_detachment(game.target)) {
+		goto_eliminated_defender()
+		return
+	}
+	blow_unit(game.target)
+	next_attack()
+}
+
+function goto_eliminated_attacker() {
+	if (piece_is_detachment(game.target)) {
+		goto_retreat_attacker()
+		return
+	}
+	eliminate_unit(game.who)
+	next_attack()
+}
+
+function goto_eliminated_defender() {
+	eliminate_unit(game.target)
+	next_attack()
+}
+
+function goto_retreat_attacker() {
+	// TODO: eliminate detachments stacked with attacker
+	game.state = "retreat_attacker"
+}
+
+function goto_retreat_defender() {
+	// TODO: recall defender OR eliminate detachments stacked with defender
+	game.state = "retreat_defender"
+}
+
 
 // === SETUP ===
 
