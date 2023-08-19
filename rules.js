@@ -1,7 +1,7 @@
 "use strict"
 
-// TODO: recall grand battery at end of turn
 // TODO: recall grand battery if alone
+// TODO: rain effect on movement
 
 const FRENCH = "French"
 const COALITION = "Coalition"
@@ -44,6 +44,9 @@ const OLD_GUARD = find_piece("Old Guard")
 const GRAND_BATTERY = find_piece("Grand Battery")
 const HILL_1 = find_piece("II Corps (Hill*)")
 const HILL_2 = find_piece("II Corps (Hill**)")
+
+const IMPERIAL_GUARD = find_piece("Guard Corps (Drouot)")
+const IMPERIAL_GUARD_CAV = find_piece("Guard Cav Corps (Guyot)")
 
 function is_map_hex(x) {
 	if (x >= 1000 && x <= 4041)
@@ -239,6 +242,13 @@ function eliminate_unit(p) {
 	set_piece_hex(p, ELIMINATED)
 }
 
+function eliminate_detachments_stacked_with_corps(c) {
+	let x = piece_hex(c)
+	for (let p of friendly_detachments())
+		if (piece_hex(p) === x)
+			eliminate_unit(p)
+}
+
 const data_rivers = []
 const data_bridges = []
 const data_road_hexsides = []
@@ -432,6 +442,7 @@ end phase
 // === === COMMAND PHASE === ===
 
 function goto_command_phase() {
+	log("Turn " + game.turn)
 	log("Command Phase")
 	log("")
 	bring_on_reinforcements()
@@ -907,7 +918,7 @@ states.advance_formation = {
 		prompt("Advance Formation.")
 		update_zoc()
 		for (let p of friendly_infantry_corps())
-			if (!piece_mode(p) && piece_is_not_in_enemy_zoc(p))
+			if (piece_mode(p) && piece_is_not_in_enemy_zoc(p))
 				gen_action_piece(p)
 	},
 	piece(p) {
@@ -921,7 +932,7 @@ states.battle_formation = {
 		prompt("Battle Formation.")
 		update_zoc()
 		for (let p of friendly_infantry_corps())
-			if (piece_mode(p) && piece_is_in_enemy_zoc(p))
+			if (!piece_mode(p) && piece_is_in_enemy_zoc(p))
 				gen_action_piece(p)
 	},
 	piece(p) {
@@ -967,6 +978,8 @@ function pass_withdrawal() {
 	} else {
 		set_next_player()
 		game.remain = 3
+		if (!can_withdraw_any())
+			pass_withdrawal()
 	}
 }
 
@@ -1527,10 +1540,18 @@ states.attack_who = {
 	prompt() {
 		prompt("Attack!")
 		let here = piece_hex(game.who)
-		for (let p of enemy_units())
-			if (piece_is_in_zoc_of_hex(p, here))
-				// TODO: NOT detachment stacked with corps!
-				gen_action_piece(p)
+		for (let p of enemy_units()) {
+			if (piece_is_in_zoc_of_hex(p, here)) {
+				if (piece_is_detachment(p)) {
+					// Only detachments that are not stacked with a corps!
+					let x = piece_hex(p)
+					if (!hex_has_any_piece(x, enemy_corps()))
+						gen_action_piece(p)
+				} else {
+					gen_action_piece(p)
+				}
+			}
+		}
 		gen_action_piece(game.who)
 	},
 	piece(p) {
@@ -1644,6 +1665,11 @@ function goto_resolve_attack() {
 		d_drm += 1
 	}
 
+	if (game.rain) {
+		log("-1 Artillery Ricochet Ineffective")
+		a_drm -= 1
+	}
+
 	// Battle Stars
 
 	// No stars if Cav charging into town
@@ -1733,19 +1759,21 @@ function goto_resolve_attack() {
 
 	// Exhaust all participants
 	set_piece_mode(a_unit, 1)
-	set_piece_mode(d_unit, 1)
+	if (!piece_is_detachment(d_unit))
+		set_piece_mode(d_unit, 1)
 
 	let a_die = roll_die()
 	let d_die = roll_die()
-	let diff = a_die - d_die
+	let diff = (a_die + a_drm) - (d_die + d_drm)
 	log("Attacker D" + a_die + " = " + (a_die + a_drm))
 	log("Defender D" + d_die + " = " + (d_die + d_drm))
+	log("diff=" + diff)
 
 	if (diff <= -5)
 		goto_eliminated_attacker()
 	else if (diff <= -3)
 		goto_blown_attacker()
-	else if (diff <= 1)
+	else if (diff <= -1)
 		goto_retreat_attacker()
 	else if (diff >= 5)
 		goto_eliminated_defender()
@@ -1763,47 +1791,219 @@ function goto_stalemate() {
 }
 
 function goto_blown_attacker() {
-	if (piece_is_detachment(game.target)) {
-		goto_retreat_attacker()
-		return
-	}
-	blow_unit(game.who)
-	next_attack()
-}
-
-function goto_blown_defender() {
-	if (piece_is_detachment(game.target)) {
-		goto_eliminated_defender()
-		return
-	}
-	blow_unit(game.target)
-	next_attack()
+	log("Blown attacker.")
+	if (piece_is_detachment(game.target))
+		game.state = "retreat_attacker"
+	else
+		game.state = "blown_attacker"
 }
 
 function goto_eliminated_attacker() {
-	if (piece_is_detachment(game.target)) {
-		goto_retreat_attacker()
-		return
-	}
-	eliminate_unit(game.who)
-	next_attack()
+	log("Eliminated attacker.")
+	if (piece_is_detachment(game.target))
+		game.state = "retreat_attacker"
+	else
+		game.state = "eliminated_attacker"
+}
+
+function goto_blown_defender() {
+	log("Blown defender.")
+	set_next_player()
+	if (piece_is_detachment(game.target))
+		game.state = "eliminated_defender"
+	else
+		game.state = "blown_defender"
 }
 
 function goto_eliminated_defender() {
-	eliminate_unit(game.target)
-	next_attack()
+	log("Eliminated defender.")
+	set_next_player()
+	game.state = "eliminated_defender"
 }
 
 function goto_retreat_attacker() {
-	// TODO: eliminate detachments stacked with attacker
+	log("Retreat attacker.")
 	game.state = "retreat_attacker"
 }
 
 function goto_retreat_defender() {
-	// TODO: recall defender OR eliminate detachments stacked with defender
-	game.state = "retreat_defender"
+	log("Retreat defender.")
+	set_next_player()
+	if (piece_is_detachment(game.target))
+		game.state = "recall_defender"
+	else
+		game.state = "retreat_defender"
 }
 
+states.blown_attacker = {
+	prompt() {
+		prompt("Attack: Blown attacker.")
+		gen_action_piece(game.who)
+	},
+	piece(p) {
+		blow_unit(p, 2)
+		next_attack()
+	},
+}
+
+states.eliminated_attacker = {
+	prompt() {
+		prompt("Attack: Eliminated attacker.")
+		gen_action_piece(game.who)
+	},
+	piece(p) {
+		eliminate_unit(p)
+		next_attack()
+	},
+}
+
+states.blown_defender = {
+	prompt() {
+		prompt("Attack: Blown defender.")
+		gen_action_piece(game.target)
+	},
+	piece(p) {
+		blow_unit(p, 2)
+		set_next_player()
+		next_attack()
+	},
+}
+
+states.eliminated_defender = {
+	prompt() {
+		prompt("Attack: Eliminated defender.")
+		gen_action_piece(game.target)
+	},
+	piece(p) {
+		eliminate_unit(p)
+		set_next_player()
+		next_attack()
+	},
+}
+
+states.retreat_attacker = {
+	prompt() {
+		prompt("Attack: Retreat attacker.")
+		let result = []
+		search_retreat(result, piece_hex(game.who), [ piece_hex(game.target) ], 3)
+		if (result.length === 0)
+			view.actions.blow = 1
+		for (let x of result)
+			gen_action_hex(x)
+	},
+	hex(x) {
+		eliminate_detachments_stacked_with_corps(game.who)
+		set_piece_hex(game.who, x)
+		next_attack()
+	},
+	blow() {
+		eliminate_detachments_stacked_with_corps(game.who)
+		blow_unit(game.who, 2)
+		next_attack()
+	},
+}
+
+states.recall_defender = {
+	prompt() {
+		prompt("Attack: Retreat defender.")
+		gen_action_piece(game.target)
+	},
+	piece(p) {
+		recall_detachment(p)
+		set_next_player()
+		next_attack()
+	},
+	blow() {
+		eliminate_detachments_stacked_with_corps(game.target)
+		blow_unit(game.target, 2)
+		next_attack()
+	},
+}
+
+states.retreat_defender = {
+	prompt() {
+		prompt("Attack: Retreat defender.")
+		let result = []
+		search_retreat(result, piece_hex(game.target), [ piece_hex(game.who) ], 3)
+		if (result.length === 0)
+			view.actions.blow = 1
+		for (let x of result)
+			gen_action_hex(x)
+	},
+	hex(x) {
+		eliminate_detachments_stacked_with_corps(game.target)
+		set_piece_hex(game.target, x)
+		set_next_player()
+		next_attack()
+	},
+	blow() {
+		eliminate_detachments_stacked_with_corps(game.target)
+		blow_unit(game.target, 2)
+		next_attack()
+	},
+}
+
+// === === END PHASE === ===
+
+function goto_end_phase() {
+	if (game.turn === 8) {
+		goto_victory_conditions()
+		return
+	}
+
+	if (piece_is_on_map(GRAND_BATTERY))
+		recall_detachment(GRAND_BATTERY)
+
+	game.turn += 1
+	goto_command_phase()
+}
+
+function goto_victory_conditions() {
+	game.active = P1
+
+	let vp1 = 0
+	let vp2 = 0
+
+	for (let p of p1_corps) {
+		if (piece_hex(p) === ELIMINATED) {
+			if (p === IMPERIAL_GUARD || p === IMPERIAL_GUARD_CAV)
+				vp2 += 5
+			else
+				vp2 += 3
+		}
+	}
+	for (let p of p1_det) {
+		if (piece_hex(p) === ELIMINATED) {
+			if (p === GRAND_BATTERY || p === OLD_GUARD)
+				vp2 += 2
+			else
+				vp2 += 1
+		}
+	}
+
+	for (let p of p2_corps)
+		if (piece_hex(p) === ELIMINATED)
+			vp1 += 3
+	for (let p of p2_det)
+		if (piece_hex(p) === ELIMINATED)
+			vp1 += 1
+
+	// TODO: can trace path from [ 1017, 1018 ] to  [ 4006, 4015, 4025 ]
+
+	log(P1 + " " + vp1 + " VP.")
+	log(P2 + " " + vp2 + " VP.")
+
+	if (vp1 >= vp2 + 12)
+		return goto_game_over(P1, "Strategic Victory")
+	if (vp2 >= vp1 + 12)
+		return goto_game_over(P2, "Strategic Victory")
+	if (vp1 >= vp2 + 9)
+		return goto_game_over(P1, "Campaign Victory")
+	if (vp2 >= vp1 + 9)
+		return goto_game_over(P2, "Campaign Victory")
+
+	goto_game_over(vp1 > vp2 ? P1 : P2, "Tactical Victory")
+}
 
 // === SETUP ===
 
@@ -1990,12 +2190,28 @@ exports.action = function (state, player, action, arg) {
 exports.resign = function (state, player) {
 	game = state
 	if (game.state !== 'game_over') {
-		if (player === RED)
-			goto_game_over(BLUE, RED + " resigned.")
-		if (player === BLUE)
-			goto_game_over(RED, BLUE + " resigned.")
+		if (player === P1)
+			goto_game_over(P2, P1 + " resigned.")
+		if (player === P2)
+			goto_game_over(P1, P2 + " resigned.")
 	}
 	return game
+}
+
+function goto_game_over(result, victory) {
+	game.state = "game_over"
+	game.active = "None"
+	game.result = result
+	game.victory = victory
+	log("")
+	log(game.victory)
+	return false
+}
+
+states.game_over = {
+	prompt() {
+		view.prompt = game.victory
+	},
 }
 
 // === COMMON LIBRARY ===
