@@ -117,6 +117,52 @@ const brussels_couillet_road_x3 = []
 for (let a of data.map.brussels_couillet_road)
 	for_each_within_x3(a, b => set_add(brussels_couillet_road_x3, b))
 
+const data_rivers = []
+const data_bridges = []
+const data_road_hexsides = []
+
+for (let [a, b] of data.map.rivers) {
+	set_add(data_rivers, a * 10000 + b)
+	set_add(data_rivers, b * 10000 + a)
+}
+
+for (let [a, b] of data.map.bridges) {
+	set_delete(data_rivers, a * 10000 + b)
+	set_delete(data_rivers, b * 10000 + a)
+	set_add(data_bridges, a * 10000 + b)
+	set_add(data_bridges, b * 10000 + a)
+}
+
+const data_roads = []
+for (let row = 0; row < data.map.rows; ++row) {
+	for (let col = 0; col < data.map.cols; ++col) {
+		let x = 1000 + row * 100 + col
+		data_roads[x-1000] = []
+	}
+}
+
+function make_road(id, road, i, d) {
+	let list = []
+	while (i >= 0 && i < road.length) {
+		list.push(road[i])
+		i += d
+	}
+	return list
+}
+
+for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
+	let road = data.map.roads[road_id]
+	for (let k = 0; k < road.length; ++k) {
+		if (k > 0) {
+			let a = road[k-1]
+			let b = road[k]
+			set_add(data_road_hexsides, a * 10000 + b)
+			set_add(data_road_hexsides, b * 10000 + a)
+		}
+		data_roads[road[k]-1000].push([road_id, k])
+	}
+}
+
 function make_piece_list(f) {
 	let list = []
 	for (let p = 0; p < data.pieces.length; ++p)
@@ -168,6 +214,10 @@ function piece_hex(p) {
 
 function piece_mode(p) {
 	return game.pieces[p] & 1
+}
+
+function piece_name(p) {
+	return data.pieces[p].name
 }
 
 function piece_is_cavalry(p) {
@@ -227,6 +277,59 @@ function piece_is_in_zoc_of_hex(p, x) {
 	return false
 }
 
+function is_river(a, b) {
+	return set_has(data_rivers, a * 10000 + b)
+}
+
+function is_bridge(a, b) {
+	return set_has(data_bridges, a * 10000 + b)
+}
+
+function is_road_hexside(a, b) {
+	return set_has(data_road_hexsides, a * 10000 + b)
+}
+
+function is_town_hex(x) {
+	return set_has(data.map.towns, x)
+}
+
+function is_stream_hex(x) {
+	return set_has(data.map.streams, x)
+}
+
+function is_road_hex(x) {
+	return data_roads[x-1000].length > 0
+}
+
+function piece_is_not_in_enemy_zoc_or_zoi(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && !is_enemy_zoc_or_zoi(x)
+}
+
+function piece_is_not_in_enemy_zoc(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && !is_enemy_zoc(x)
+}
+
+function piece_is_not_in_enemy_cav_zoc(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && !is_enemy_cav_zoc(x)
+}
+
+function piece_is_in_enemy_zoc(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x) && is_enemy_zoc(x)
+}
+
+function piece_is_on_map(p) {
+	let x = piece_hex(p)
+	return is_map_hex(x)
+}
+
+function set_next_player() {
+	game.active = (game.active === P1) ? P2 : P1
+}
+
 function blow_unit(p, n) {
 	if (game.turn + n > 8) {
 		log("Eliminated P" + p)
@@ -250,74 +353,8 @@ function eliminate_detachments_stacked_with_corps(c) {
 			eliminate_unit(p)
 }
 
-const data_rivers = []
-const data_bridges = []
-const data_road_hexsides = []
-
-for (let [a, b] of data.map.rivers) {
-	set_add(data_rivers, a * 10000 + b)
-	set_add(data_rivers, b * 10000 + a)
-}
-
-for (let [a, b] of data.map.bridges) {
-	set_delete(data_rivers, a * 10000 + b)
-	set_delete(data_rivers, b * 10000 + a)
-	set_add(data_bridges, a * 10000 + b)
-	set_add(data_bridges, b * 10000 + a)
-}
-
-function is_river(a, b) {
-	return set_has(data_rivers, a * 10000 + b)
-}
-
-function is_bridge(a, b) {
-	return set_has(data_bridges, a * 10000 + b)
-}
-
-function is_road_hexside(a, b) {
-	return set_has(data_road_hexsides, a * 10000 + b)
-}
-
-function is_town_hex(x) {
-	return set_has(data.map.towns, x)
-}
-
-function is_stream_hex(x) {
-	return set_has(data.map.streams, x)
-}
-
-const data_roads = []
-for (let row = 0; row < data.map.rows; ++row) {
-	for (let col = 0; col < data.map.cols; ++col) {
-		let x = 1000 + row * 100 + col
-		data_roads[x-1000] = []
-	}
-}
-
-function make_road(id, road, i, d) {
-	let list = []
-	while (i >= 0 && i < road.length) {
-		list.push(road[i])
-		i += d
-	}
-	return list
-}
-
-for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
-	let road = data.map.roads[road_id]
-	for (let k = 0; k < road.length; ++k) {
-		if (k > 0) {
-			let a = road[k-1]
-			let b = road[k]
-			set_add(data_road_hexsides, a * 10000 + b)
-			set_add(data_road_hexsides, b * 10000 + a)
-		}
-		data_roads[road[k]-1000].push([road_id, k])
-	}
-}
-
-function is_road_hex(x) {
-	return data_roads[x-1000].length > 0
+function prompt(str) {
+	view.prompt = str
 }
 
 // === ZONE OF CONTROL / INFLUENCE ===
@@ -374,39 +411,6 @@ function update_zoc() {
 		update_zoc_imp(16, 64, p2_inf)
 		update_zoc_imp(16, 0, p2_det)
 	}
-}
-
-function piece_is_not_in_enemy_zoc_or_zoi(p) {
-	let x = piece_hex(p)
-	return is_map_hex(x) && !is_enemy_zoc_or_zoi(x)
-}
-
-function piece_is_not_in_enemy_zoc(p) {
-	let x = piece_hex(p)
-	return is_map_hex(x) && !is_enemy_zoc(x)
-}
-
-function piece_is_not_in_enemy_cav_zoc(p) {
-	let x = piece_hex(p)
-	return is_map_hex(x) && !is_enemy_cav_zoc(x)
-}
-
-function piece_is_in_enemy_zoc(p) {
-	let x = piece_hex(p)
-	return is_map_hex(x) && is_enemy_zoc(x)
-}
-
-function piece_is_on_map(p) {
-	let x = piece_hex(p)
-	return is_map_hex(x)
-}
-
-function set_next_player() {
-	game.active = (game.active === P1) ? P2 : P1
-}
-
-function prompt(str) {
-	view.prompt = str
 }
 
 // === COMMAND PHASE ===
@@ -721,7 +725,7 @@ states.place_detachment_who = {
 
 states.place_detachment_where = {
 	prompt() {
-		prompt("Place " + data.pieces[game.who].name + ".")
+		prompt("Place " + piece_name(game.who) + ".")
 		gen_action_piece(game.who)
 
 		if (game.who === GRAND_BATTERY) {
@@ -917,7 +921,7 @@ states.withdrawal = {
 
 states.withdrawal_to = {
 	prompt() {
-		prompt("Withdraw " + data.pieces[game.who].name + ".")
+		prompt("Withdraw " + piece_name(game.who) + ".")
 		update_zoc()
 		let list = search_withdrawal(piece_hex(game.who))
 		if (list.length > 0)
@@ -1038,7 +1042,7 @@ states.movement = {
 
 states.movement_to = {
 	prompt() {
-		prompt("Move " + data.pieces[game.who].name + ".")
+		prompt("Move " + piece_name(game.who) + ".")
 
 		update_zoc()
 		search_move(game.who)
