@@ -256,6 +256,7 @@ data.reinforcements = [
 		hex: 3000,
 		list: [
 			"II Corps (Hill*)",
+			"II Corps (Hill**)",
 		],
 	},
 	{

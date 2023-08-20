@@ -1,6 +1,7 @@
 "use strict"
 
 const ELIMINATED = 0
+const SWAPPED = 200
 const REINFORCEMENTS = 100
 const AVAILABLE_P1 = 101
 const AVAILABLE_P2 = 102
@@ -252,7 +253,7 @@ function on_update() {
 		let hex = view.pieces[id] >> 1
 		let z = 0
 		let s = 0
-		if (hex > BLOWN && hex < first_hex)
+		if (hex > BLOWN && hex < BLOWN + 20)
 			hex -= BLOWN
 		if (hex >= first_hex || hex === REINFORCEMENTS) {
 			// ON MAP
@@ -294,7 +295,7 @@ function on_update() {
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
 			ui.pieces[id].style.zIndex = 0
-		} else if (hex >= 1) {
+		} else if (hex >= 1 && hex <= 20) {
 			// ON TURN TRACK
 			ui.pieces[id].classList.remove("hide")
 			ui.pieces[id].classList.remove("flip")
@@ -311,15 +312,12 @@ function on_update() {
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
 		} else {
-			// TODO: ENTRY HEXES
-			// ELIMINATED
+			// ELIMINATED or SWAPPED
 			ui.pieces[id].classList.add("hide")
 		}
 		//if (is_action("piece", id)) z = 101
-		if (view.target === id)
-			z = 102
-		if (view.who === id)
-			z = 103
+		if (view.target === id) z = 102
+		if (view.who === id) z = 103
 		ui.pieces[id].style.zIndex = z
 		ui.pieces[id].classList.toggle("action", is_action("piece", id))
 		ui.pieces[id].classList.toggle("selected", view.who === id)

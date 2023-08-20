@@ -1,34 +1,37 @@
 "use strict"
 
+// TODO - auto-update ZOC
+
 // TODO: recall grand battery if alone
 // TODO: rain effect on movement
 // TODO goto_british_line_of_communication_angst
 
-const FRENCH = "French"
-const COALITION = "Coalition"
-
-const P1 = FRENCH
-const P2 = COALITION
-
-exports.roles = [ P1, P2 ]
-
-exports.scenarios = [ "June 16", "June 15", "June 15 (no special rules)" ]
-
-const data = require("./data")
-
-const { max, abs } = Math
-
-const last_hex = 1000 + (data.map.rows - 1) * 100 + (data.map.cols - 1)
+const P1 = "French"
+const P2 = "Coalition"
 
 var game = null
 var view = null
 var states = {}
+
+exports.roles = [ P1, P2 ]
+
+exports.scenarios = [ "June 16", "June 15" ]
+
+const data = require("./data")
+
+const last_hex = 1000 + (data.map.rows - 1) * 100 + (data.map.cols - 1)
+
+var move_seen = new Array(last_hex - 999).fill(0)
+var move_cost = new Array(last_hex - 999).fill(0)
+var zoc_valid = false
+var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
 const ELIMINATED = 0
 const REINFORCEMENTS = 100
 const AVAILABLE_P1 = 101
 const AVAILABLE_P2 = 102
 const BLOWN = 103
+const SWAPPED = 200
 
 function find_piece(name) {
 	let id = data.pieces.findIndex(pc => pc.name === name)
@@ -45,7 +48,6 @@ const OLD_GUARD = find_piece("Old Guard")
 const GRAND_BATTERY = find_piece("Grand Battery")
 const HILL_1 = find_piece("II Corps (Hill*)")
 const HILL_2 = find_piece("II Corps (Hill**)")
-
 const IMPERIAL_GUARD = find_piece("Guard Corps (Drouot)")
 const IMPERIAL_GUARD_CAV = find_piece("Guard Cav Corps (Guyot)")
 
@@ -64,25 +66,13 @@ function calc_distance(a, b) {
 	let bx = bc - (by >> 1)
 	let az = -ax - ay
 	let bz = -bx - by
-	return max(abs(bx-ax), abs(by-ay), abs(bz-az))
-}
-
-function is_adjacent(a, b) {
-	return is_map_hex(a) && is_map_hex(b) && calc_distance(a, b) === 1 && !is_river(a, b)
+	return Math.max(Math.abs(bx-ax), Math.abs(by-ay), Math.abs(bz-az))
 }
 
 const adjacent_x1 = [
 	[-101,-100,-1,1,99,100],
 	[-100,-99,-1,1,100,101]
 ]
-
-function for_each_adjacent(x, f) {
-	for (let dx of adjacent_x1[x / 100 & 1]) {
-		let nx = x + dx
-		if (is_map_hex(nx))
-			f(nx)
-	}
-}
 
 const within_x3 = [
 	[
@@ -105,6 +95,14 @@ const within_x3 = [
 	]
 ]
 
+function for_each_adjacent(x, f) {
+	for (let dx of adjacent_x1[x / 100 & 1]) {
+		let nx = x + dx
+		if (is_map_hex(nx))
+			f(nx)
+	}
+}
+
 function for_each_within_x3(x, f) {
 	for (let dx of within_x3[x / 100 & 1]) {
 		let nx = x + dx
@@ -120,6 +118,7 @@ for (let a of data.map.brussels_couillet_road)
 const data_rivers = []
 const data_bridges = []
 const data_road_hexsides = []
+const data_roads = []
 
 for (let [a, b] of data.map.rivers) {
 	set_add(data_rivers, a * 10000 + b)
@@ -133,21 +132,11 @@ for (let [a, b] of data.map.bridges) {
 	set_add(data_bridges, b * 10000 + a)
 }
 
-const data_roads = []
 for (let row = 0; row < data.map.rows; ++row) {
 	for (let col = 0; col < data.map.cols; ++col) {
 		let x = 1000 + row * 100 + col
 		data_roads[x-1000] = []
 	}
-}
-
-function make_road(id, road, i, d) {
-	let list = []
-	while (i >= 0 && i < road.length) {
-		list.push(road[i])
-		i += d
-	}
-	return list
 }
 
 for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
@@ -179,6 +168,7 @@ const p1_inf = make_piece_list(p => p.side === P1 && p.type === "inf")
 const p2_inf = make_piece_list(p => p.side !== P1 && p.type === "inf")
 const p1_det = make_piece_list(p => p.side === P1 && p.type === "det")
 const p2_det = make_piece_list(p => p.side !== P1 && p.type === "det")
+const aa_det = make_piece_list(p => p.side === "Anglo" && p.type === "det")
 const p1_corps = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav"))
 const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav"))
 const p1_units = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
@@ -254,6 +244,10 @@ function piece_stars(p) {
 	if (data.pieces[p].type === "cav" && piece_mode(p))
 		return 0
 	return data.pieces[p].stars
+}
+
+function is_adjacent(a, b) {
+	return is_map_hex(a) && is_map_hex(b) && calc_distance(a, b) === 1 && !is_river(a, b)
 }
 
 function is_empty_hex(x) {
@@ -353,14 +347,24 @@ function eliminate_detachments_stacked_with_corps(c) {
 			eliminate_unit(p)
 }
 
+function recall_grand_battery_alone() {
+	let x = piece_hex(GRAND_BATTERY)
+	if (is_map_hex(x) && !hex_has_any_piece(x, friendly_corps()))
+		recall_detachment(GRAND_BATTERY)
+}
+
+function recall_detachment(p) {
+	if (set_has(p1_det, p))
+		set_piece_hex(p, AVAILABLE_P1)
+	else
+		set_piece_hex(p, AVAILABLE_P2)
+}
+
 function prompt(str) {
 	view.prompt = str
 }
 
 // === ZONE OF CONTROL / INFLUENCE ===
-
-var zoc_valid = false
-var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
 // ANY_ZOC=1, CAV_ZOC=2, ANY_ZOI=4, CAV_ZOI=8
 
@@ -785,13 +789,6 @@ function end_detachment_recall_step() {
 	}
 }
 
-function recall_detachment(p) {
-	if (set_has(p1_det, p))
-		set_piece_hex(p, AVAILABLE_P1)
-	else
-		set_piece_hex(p, AVAILABLE_P2)
-}
-
 states.detachment_recall_step = {
 	prompt() {
 		prompt("Detachment Recall Step.")
@@ -816,12 +813,34 @@ states.detachment_recall_step = {
 function goto_organization_phase() {
 	update_zoc()
 
+	// British Line of Communication Angst
+	let n = 0
+	for (let p of aa_det)
+		if (piece_is_on_map(p) || piece_hex(p) === ELIMINATED) {
+		console.log("P" + p, piece_name(p), piece_hex(p), piece_is_on_map(p))
+			++n
+			}
+	console.log("aa dets=" + n)
+	if (n < 3) {
+		if (piece_hex(HILL_2) === SWAPPED && piece_hex(HILL_1) !== ELIMINATED) {
+			log("Substituted P" + HILL_2 + ".")
+			set_piece_hex(HILL_2, piece_hex(HILL_1))
+			set_piece_mode(HILL_2, piece_mode(HILL_1))
+			set_piece_hex(HILL_1, SWAPPED)
+			set_piece_mode(HILL_1, 0)
+		}
+	} else {
+		if (piece_hex(HILL_1) === SWAPPED && piece_hex(HILL_2) !== ELIMINATED) {
+			log("Substituted P" + HILL_1 + ".")
+			set_piece_hex(HILL_1, piece_hex(HILL_2))
+			set_piece_mode(HILL_1, piece_mode(HILL_2))
+			set_piece_hex(HILL_2, SWAPPED)
+			set_piece_mode(HILL_2, 0)
+		}
+	}
+
 	log("")
 	log("Organization Phase")
-
-	// British Line of Communication Angst
-	// TODO
-	log("TODO: British Line of Communication Angst")
 
 	// F: ADVANCE FORMATION
 	game.active = P1
@@ -936,11 +955,13 @@ states.withdrawal_to = {
 	blow() {
 		blow_unit(game.who, 2)
 		game.who = -1
+		recall_grand_battery_alone()
 		next_withdrawal()
 	},
 	hex(x) {
 		set_piece_hex(game.who, x)
 		game.who = -1
+		recall_grand_battery_alone()
 		next_withdrawal()
 	},
 }
@@ -951,7 +972,8 @@ function bring_on_reinforcements() {
 	for (let info of data.reinforcements)
 		if (info.turn === game.turn)
 			for (let p of info.list)
-				set_piece_hex(p, REINFORCEMENTS)
+				if (piece_hex(p) !== SWAPPED)
+					set_piece_hex(p, REINFORCEMENTS)
 	for (let p of friendly_units())
 		if (piece_hex(p) === BLOWN + game.turn)
 			set_piece_hex(p, BLOWN)
@@ -990,7 +1012,7 @@ states.movement = {
 		for (let info of data.reinforcements) {
 			if (info.turn === game.turn && info.side === game.active) {
 				for (let p of info.list) {
-					if (!piece_is_on_map(p)) {
+					if (piece_hex(p) === REINFORCEMENTS) {
 						has_reinf = true
 						gen_action_piece(p)
 						break
@@ -1084,6 +1106,7 @@ states.movement_to = {
 				set_piece_mode(p, 1)
 
 		game.who = -1
+		recall_grand_battery_alone()
 		next_movement()
 	},
 }
@@ -1146,9 +1169,6 @@ function must_flip_zoc(here, next, is_cav) {
 		return true
 	return false
 }
-
-const move_seen = new Array(last_hex - 999).fill(0)
-const move_cost = new Array(last_hex - 999).fill(0)
 
 function find_reinforcement_hex(who) {
 	for (let info of data.reinforcements)
@@ -1288,7 +1308,6 @@ function search_move_road(start, ma, hq_hex, hq_range, is_cav) {
 	let queue = [ start ]
 	while (queue.length > 0) {
 		let here = queue.shift()
-		let mp = move_cost[here-1000]
 		for (let [road_id, k] of data_roads[here-1000]) {
 			let road = data.map.roads[road_id]
 			if (k + 1 < road.length)
@@ -1588,8 +1607,8 @@ function goto_resolve_attack() {
 	// Grand battery stacked with attacking or supporting corps
 	let gb_hex = piece_hex(GRAND_BATTERY)
 	for (let p of friendly_corps())
-		if (gb_hex === piece_hex(p) && (p === who || (game.count & (1<<p))))
-			a_drm += log_drm(piece_stars(GRAND_BATTERY), "P" + GRAND_BATTERY)
+		if (gb_hex === piece_hex(p) && (p === game.who || (game.count & (1<<p))))
+			a_drm += log_drm(1, "Grand Battery")
 
 	// Attack Support
 	n = 0
@@ -1836,6 +1855,7 @@ function goto_pursuit() {
 	if (!hex_has_any_piece(game.attack, enemy_units()) && piece_is_not_in_enemy_zoc(game.who)) {
 		set_piece_hex(game.who, game.attack)
 		log("P" + game.who + " pursuit")
+		recall_grand_battery_alone()
 	}
 
 	next_attack()
@@ -1964,6 +1984,7 @@ function setup_june_15() {
 	setup_piece("Anglo", "Reserve Corps (Wellington)", 3715)
 	setup_piece("Anglo", "I Corps (Orange)", 3002)
 	setup_piece("Anglo", "II Corps (Hill*)", 3)
+	setup_piece("Anglo", "II Corps (Hill**)", SWAPPED)
 	setup_piece("Anglo", "Cav Corps (Uxbridge)", 4)
 	setup_piece("Anglo", "Cav Detachment (Collaert)", 1211)
 	setup_piece("Anglo", "I Detachment (Perponcher)", 2618)
@@ -2002,6 +2023,7 @@ function setup_june_16() {
 	setup_piece("Anglo", "Reserve Corps (Wellington)", 3715)
 	setup_piece("Anglo", "I Corps (Orange)", 3002)
 	setup_piece("Anglo", "II Corps (Hill*)", 3)
+	setup_piece("Anglo", "II Corps (Hill**)", SWAPPED)
 	setup_piece("Anglo", "Cav Corps (Uxbridge)", 4)
 	setup_piece("Anglo", "Cav Detachment (Collaert)", 1211)
 	setup_piece("Anglo", "I Detachment (Perponcher)", 2618)
