@@ -347,5 +347,65 @@ function on_update() {
 	action_button("undo", "Undo")
 }
 
+const DICE = {
+	D0: '0',
+	D1: '1',
+	D2: '2',
+	D3: '3',
+	D4: '4',
+	D5: '5',
+	D6: '6',
+}
+
+function sub_dice(match) {
+	return DICE[match]
+}
+
+function sub_hex(match, p1) {
+	let x = p1 | 0
+	let n = data.map.names[x]
+	if (n)
+		return x + " (" + n + ")"
+	return x
+}
+
+function sub_piece(match, p1) {
+	let x = p1 | 0
+	return data.pieces[x].name
+}
+
+function on_log(text) {
+	let p = document.createElement("div")
+
+	if (text.match(/^>/)) {
+		text = text.substring(1)
+		p.className = 'i'
+	}
+
+	text = text.replace(/&/g, "&amp;")
+	text = text.replace(/</g, "&lt;")
+	text = text.replace(/>/g, "&gt;")
+
+	text = text.replace(/\b(\d\d\d\d)\b/g, sub_hex)
+	text = text.replace(/P(\d+)/g, sub_piece)
+	text = text.replace(/\bD\d\b/g, sub_dice)
+
+	if (text.match(/^\.h1 /)) {
+		text = text.substring(4)
+		p.className = "h1"
+	}
+	else if (text.match(/^\.h2/)) {
+		text = text.substring(4)
+		p.className = "h2"
+	}
+	else if (text.match(/^\.h3/)) {
+		text = text.substring(4)
+		p.className = "h3"
+	}
+
+	p.innerHTML = text
+	return p
+}
+
 build_hexes()
 scroll_with_middle_mouse("main")

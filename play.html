@@ -14,6 +14,16 @@
 </head>
 <style>
 
+#log { background-color: whitesmoke; }
+#log .h1 { font-weight: bold; padding-top:2px; padding-bottom:2px; margin: 8px 0; text-align: center; }
+#log .h2 { padding-top:1px; padding-bottom:1px; text-align: center; }
+#log .h1 { border-bottom: 1px solid #444; border-top: 1px solid #444; }
+#log .h2 { border-bottom: 1px solid #444; border-top: 1px solid #444; }
+#log .h1 { background-color: silver; }
+#log .h2 { background-color: gainsboro; }
+#log div { padding-left: 20px; text-indent: -12px; }
+#log div.i { padding-left: 32px; text-indent: -12px; }
+
 main {
 	background-color: dimgray;
 }
@@ -201,6 +211,26 @@ main {
 .small.flip.y4 { background-position: -34px -102px }
 .small.flip.y5 { background-position: -34px -136px }
 .small.flip.y6 { background-position: -34px -170px }
+
+#log .dice {
+	display: inline-block;
+	vertical-align: -2px;
+	width: 12px;
+	height: 12px;
+	background-size: 600% 100%;
+	background-repeat: no-repeat;
+	background-image: url(die_black_pips.svg);
+	background-color: #fff;
+	border: 1px solid #444;
+}
+
+.d0 { background-position: -100% 0 }
+.d1 { background-position: 0% 0; }
+.d2 { background-position: 20% 0; }
+.d3 { background-position: 40% 0; }
+.d4 { background-position: 60% 0; }
+.d5 { background-position: 80% 0; }
+.d6 { background-position: 100% 0; }
 
 </style>
 <body>

@@ -421,9 +421,9 @@ function update_zoc() {
 
 function goto_command_phase() {
 	log("")
-	log("Turn " + game.turn)
+	log(".h1 Turn " + game.turn)
 	log("")
-	log("Command Phase")
+	log(".h2 Command Phase")
 	log("")
 	bring_on_reinforcements()
 	goto_hq_placement_step()
@@ -840,7 +840,7 @@ function goto_organization_phase() {
 	}
 
 	log("")
-	log("Organization Phase")
+	log(".h2 Organization Phase")
 
 	// F: ADVANCE FORMATION
 	game.active = P1
@@ -878,23 +878,26 @@ function can_withdraw_any() {
 
 function goto_withdrawal() {
 	log("")
-	log("Withdrawal.")
-	game.active = P1
-	game.state = "withdrawal"
+	log(".h2 Withdrawal")
 	game.remain = 0
-	if (!can_withdraw_any())
-		pass_withdrawal()
+	game.active = P2
+	next_withdrawal()
 }
 
 function next_withdrawal() {
 	game.state = "withdrawal"
+
 	if (game.remain === 0) {
 		set_next_player()
-		if (!can_withdraw_any())
-			pass_withdrawal()
-	} else if (--game.remain === 0) {
-		end_withdrawal()
+	} else {
+		if (--game.remain === 0) {
+			end_withdrawal()
+			return
+		}
 	}
+
+	if (!can_withdraw_any())
+		pass_withdrawal()
 }
 
 function pass_withdrawal() {
@@ -979,23 +982,74 @@ function bring_on_reinforcements() {
 			set_piece_hex(p, BLOWN)
 }
 
-function goto_movement_phase() {
-	log("")
-	log("Movement Phase")
-	log("")
-	game.active = P1
-	game.state = "movement"
-	game.remain = 0
+function can_move_any() {
+	update_zoc()
+	for (let info of data.reinforcements)
+		if (info.turn === game.turn && info.side === game.active)
+			for (let p of info.list)
+				if (piece_hex(p) === REINFORCEMENTS)
+					return true
+	for (let p of friendly_cavalry_corps())
+		if (piece_is_not_in_enemy_cav_zoc(p))
+			return true
+	for (let p of friendly_infantry_corps())
+		if (piece_is_not_in_enemy_zoc(p))
+			return true
+	return false
 }
 
-// TODO: can move or auto-pass
+function goto_movement_phase() {
+	log("")
+	log(".h2 Movement Phase")
+	log("")
+	game.remain = 0
+	game.active = P2
+	next_movement()
+}
 
 function next_movement() {
 	game.state = "movement"
-	if (game.remain === 0)
+	game.who = -1
+
+	if (game.remain === 0) {
 		set_next_player()
-	else if (--game.remain === 0)
+	} else {
+		if (--game.remain === 0) {
+			end_movement()
+			return
+		}
+	}
+
+	if (!can_move_any())
+		pass_movement()
+}
+
+function pass_movement() {
+	log(game.active + " passed movement.")
+	if (game.remain > 0) {
 		end_movement()
+	} else {
+		update_zoc()
+		set_next_player()
+
+		game.remain = roll_die()
+		log("Rolled D" + game.remain)
+		
+		let n = 0
+		for (let p of friendly_corps()) {
+			if (piece_is_not_in_enemy_zoc_or_zoi(p))
+				++n
+			if (piece_hex(p) === REINFORCEMENTS)
+				++n
+		}
+
+		log(n + " Corps not in ZOC/ZOI")
+
+		game.remain += n
+
+		if (!can_move_any())
+			pass_movement()
+	}
 }
 
 function end_movement() {
@@ -1038,27 +1092,7 @@ states.movement = {
 		game.state = "movement_to"
 	},
 	pass() {
-		log(game.active + " passed movement.")
-		if (game.remain > 0) {
-			end_movement()
-		} else {
-			update_zoc()
-			set_next_player()
-			game.remain = roll_die()
-			log("Rolled D" + game.remain)
-			
-			let n = 0
-			for (let p of friendly_corps()) {
-				if (piece_is_not_in_enemy_zoc_or_zoi(p))
-					++n
-				if (piece_hex(p) === REINFORCEMENTS)
-					++n
-			}
-
-			log(n + " Corps not in ZOC/ZOI")
-
-			game.remain += n
-		}
+		pass_movement()
 	},
 }
 
@@ -1386,26 +1420,53 @@ function search_retreat(result, here, from_list, n) {
 
 // === ATTACK PHASE ===
 
-function goto_attack_phase() {
-	log("")
-	log("Attack Phase")
-	log("")
-	game.active = P1
-	game.state = "attack"
-	game.remain = 0
+function can_attack_any() {
+	for (let p of friendly_corps())
+		if (piece_is_in_enemy_zoc(p))
+			return true
+	return false
 }
 
-// TODO: can attack or auto-pass
+function goto_attack_phase() {
+	log("")
+	log(".h2 Attack Phase")
+	log("")
+	game.remain = 0
+	game.active = P2
+	next_attack()
+}
 
 function next_attack() {
 	game.state = "attack"
 	game.who = -1
 	game.target = -1
 	game.attack = 0
-	if (game.remain === 0)
+
+	if (game.remain === 0) {
 		set_next_player()
-	else if (--game.remain === 0)
+	} else {
+		if (--game.remain === 0) {
+			end_attack()
+			return
+		}
+	}
+
+	if (!can_attack_any())
+		pass_attack()
+}
+
+function pass_attack() {
+	log(game.active + " passed attack.")
+	if (game.remain > 0) {
 		end_attack()
+	} else {
+		set_next_player()
+		game.remain = roll_die()
+		console.log("roll", game.remain)
+		log("Rolled D" + game.remain)
+		if (!can_attack_any())
+			pass_attack()
+	}
 }
 
 function end_attack() {
@@ -1427,18 +1488,9 @@ states.attack = {
 		game.state = "attack_who"
 	},
 	pass() {
-		log(game.active + " passed attack.")
-		if (game.remain > 0) {
-			end_attack()
-		} else {
-			set_next_player()
-			game.remain = roll_die()
-			log("Rolled D" + game.remain)
-		}
+		pass_attack()
 	},
 }
-
-// === ATTACK
 
 function can_attack_cavalry_support(p) {
 	if (p === game.who)
@@ -1481,7 +1533,7 @@ states.attack_who = {
 			pop_undo()
 			return
 		}
-		log("Attacked " + p)
+		log("Attacked P" + p)
 		game.target = p
 		game.attack = piece_hex(game.target)
 		begin_attack()
@@ -1577,7 +1629,7 @@ function goto_resolve_attack() {
 	let town = is_town_hex(d_hex)
 
 	log("")
-	log("ATTACK H" + d_hex)
+	log("ATTACK " + d_hex)
 
 	// ATTACKER DRM
 
