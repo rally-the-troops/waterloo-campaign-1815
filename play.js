@@ -47,6 +47,22 @@ function set_has(set, item) {
 	return false
 }
 
+function map_get(map, key, missing) {
+	let a = 0
+	let b = (map.length >> 1) - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = map[m<<1]
+		if (key < x)
+			b = m - 1
+		else if (key > x)
+			a = m + 1
+		else
+			return map[(m<<1)+1]
+	}
+	return missing
+}
+
 const FRENCH = "French"
 const COALITION = "Coalition"
 
@@ -122,8 +138,15 @@ function on_blur(evt) {
 	document.getElementById("status").textContent = ""
 }
 
+function on_blur_hex(evt) {
+	on_blur()
+	hide_move_path()
+}
+
 function on_focus_hex(evt) {
 	document.getElementById("status").textContent = "Hex " + evt.target.my_name
+	if (view && view.move_from)
+		show_move_path(evt.target.my_id)
 }
 
 function on_focus_piece(evt) {
@@ -144,6 +167,49 @@ function toggle_pieces() {
 	document.getElementById("pieces").classList.toggle("hide")
 }
 
+var _move_path = []
+
+function hide_move_path() {
+	if (_move_path) {
+		for (let x of _move_path) {
+			ui.hexes[x].classList.remove("move")
+			ui.hexes[x].classList.remove("road")
+		}
+		_move_path = null
+	}
+}
+
+function show_move_path(x) {
+	if (_move_path)
+		hide_move_path()
+
+	if (!is_action("hex", x) && !is_action("stop_hex", x))
+		return
+
+	if (view.move_from_road && map_get(view.move_from_road, x, 0)) {
+		_move_path = []
+		for (let i = 0; x && i < 100; ++i) {
+			_move_path.push(x)
+			x = map_get(view.move_from_road, x, 0)
+		}
+		for (let x of _move_path)
+			ui.hexes[x].classList.add("road")
+	}
+
+	else
+
+	if (view.move_from && map_get(view.move_from, x, 0)) {
+		_move_path = []
+		for (let i = 0; x && i < 100; ++i) {
+			_move_path.push(x)
+			x = map_get(view.move_from, x, 0)
+		}
+		for (let x of _move_path)
+			ui.hexes[x].classList.add("move")
+	}
+
+}
+
 function build_hexes() {
 	for (let row = 0; row < data.map.rows; ++row) {
 		for (let col = 0; col < data.map.cols; ++col) {
@@ -159,7 +225,7 @@ function build_hexes() {
 			hex.style.height = (hex_r * 2) + "px"
 			hex.onmousedown = on_click_action
 			hex.onmouseenter = on_focus_hex
-			hex.onmouseleave = on_blur
+			hex.onmouseleave = on_blur_hex
 			hex.my_action = "hex"
 			hex.my_action_2 = "stop_hex"
 			hex.my_id = hex_id
@@ -240,6 +306,9 @@ function find_reinforcement_z(who) {
 
 function on_update() {
 	ui.stack.fill(0)
+
+	if (!view.move_path)
+		hide_move_path()
 
 	for (let row = 0; row < data.map.rows; ++row) {
 		for (let col = 0; col < data.map.cols; ++col) {

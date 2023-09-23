@@ -170,6 +170,18 @@ main {
 	background-color: #f002;
 }
 
+.hex.move {
+	background-color: #0a04;
+}
+
+.hex.road {
+	background-color: #8804;
+}
+
+.hex.move.stop, .hex.road.stop {
+	background-color: #f006;
+}
+
 .hexside {
 	position: absolute;
 	display: none;

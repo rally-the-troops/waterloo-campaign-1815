@@ -23,6 +23,9 @@ const last_hex = 1000 + (data.map.rows - 1) * 100 + (data.map.cols - 1)
 
 var move_seen = new Array(last_hex - 999).fill(0)
 var move_cost = new Array(last_hex - 999).fill(0)
+var move_flip = new Array(last_hex - 999).fill(0)
+var move_from = []
+var move_from_road = []
 var zoc_valid = false
 var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
@@ -751,11 +754,15 @@ states.place_detachment_where = {
 
 		search_detachment(game.who, game.target)
 
+		view.move_from = move_from
+		view.move_from_road = move_from_road
+
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				if (move_seen[x-1000] && !is_friendly_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_detachments()))
-					gen_action_hex(x)
+				if (move_seen[x-1000])
+					if (!is_friendly_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_detachments()))
+						gen_action_hex(x)
 			}
 		}
 	},
@@ -1093,16 +1100,17 @@ states.movement_to = {
 
 		update_zoc()
 		search_move(game.who)
+		view.move_from = move_from
+		view.move_from_road = move_from_road
 
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				let m = move_seen[x-1000]
-				if (m & 1) {
-					if (m & 2)
-						gen_action_hex(x)
-					else
+				if (move_seen[x-1000]) {
+					if (move_flip[x-1000])
 						gen_action_stop_hex(x)
+					else
+						gen_action_hex(x)
 				}
 			}
 		}
@@ -1127,7 +1135,7 @@ states.movement_to = {
 			log("C: P" + game.who + " moved to " + x)
 
 		// must flip (stream without road, or enter zoc)
-		if (!(move_seen[x-1000] & 2))
+		if (move_flip[x-1000])
 			set_piece_mode(game.who, 1)
 
 		// flip all enemy inf in zoc
@@ -1219,6 +1227,9 @@ function can_trace_detachment(here, next) {
 function search_detachment(who, hq) {
 	move_seen.fill(0)
 
+	move_from.length = 0
+	move_from_road.length = 0
+
 	search_detachment_normal(piece_hex(hq), piece_command_range(hq))
 
 	if (!piece_mode(hq))
@@ -1230,20 +1241,23 @@ function search_detachment(who, hq) {
 			search_detachment_normal(piece_hex(pp), 4)
 }
 
-function search_detachment_normal(start, range) {
+function search_detachment_normal(start, ma) {
+	let queue = [ (start << 8) | (ma) ]
 	move_cost.fill(0)
-	move_cost[start-1000] = range
+	move_cost[start-1000] = 1
 	move_seen[start-1000] = 1
-	let queue = [ start ]
 	while (queue.length > 0) {
-		let here = queue.shift()
+		let item = queue.shift()
+		let here = item >> 8
+		let mp = item & 255
 		for_each_adjacent(here, next => {
-			if (can_trace_detachment(here, next)) {
-				let mp = move_cost[here-1000] - 1
-				move_seen[next-1000] = 1
-				if (mp > move_cost[next-1000]) {
-					move_cost[next-1000] = mp
-					queue.push(next)
+			if (!move_cost[next-1000]) {
+				if (can_trace_detachment(here, next)) {
+					map_set(move_from, next, here)
+					move_cost[next-1000] = 1
+					move_seen[next-1000] = 1
+					if (mp > 1)
+						queue.push((next << 8) | (mp - 1))
 				}
 			}
 		})
@@ -1251,51 +1265,71 @@ function search_detachment_normal(start, range) {
 }
 
 function search_detachment_road(start, range) {
+	let queue = [ start ]
+
 	move_cost.fill(0)
 	move_cost[start-1000] = range
 	move_seen[start-1000] = 1
-	let queue = [ start ]
+
 	while (queue.length > 0) {
 		let here = queue.shift()
 		for (let [road_id, k] of data_roads[here-1000]) {
 			let road = data.map.roads[road_id]
 			if (k + 1 < road.length)
-				search_detachment_road_segment(queue, road, k, 1)
+				search_detachment_road_segment(queue, here, road, k, 1)
 			if (k > 0)
-				search_detachment_road_segment(queue, road, k, -1)
+				search_detachment_road_segment(queue, here, road, k, -1)
 		}
 	}
 }
 
-function search_detachment_road_segment(queue, road, cur, dir) {
-	let here = road[cur]
+function search_detachment_road_segment(queue, here, road, cur, dir) {
 	let mp = move_cost[here-1000]
+	let qq = false
 	cur += dir
+
 	while (mp > 0 && cur >= 0 && cur < road.length) {
 		let next = road[cur]
+
 		if (!can_trace_detachment(here, next))
 			return
-		move_seen[next-1000] = 1
-		here = next
+
+		let next_mp = mp - 1
+
+		let seen_mp = move_cost[next-1000]
+		if (seen_mp === 255 || next_mp > seen_mp) {
+			map_set(move_from_road, next, here)
+			move_seen[next-1000] = 1
+			move_cost[next-1000] = next_mp
+			qq = (next_mp > 0)
+		} else {
+			return
+		}
+
 		cur += dir
-		mp --
+		here = next
+		mp = next_mp
 	}
-	if (mp > move_cost[here-1000]) {
-		move_cost[here-1000] = mp
+
+	if (qq)
 		queue.push(here)
-	}
 }
 
 function search_move(p) {
 	move_seen.fill(0)
+	move_flip.fill(1)
+	move_from.length = 0
+	move_from_road.length = 0
+
 	let x = piece_hex(p)
 	let m = piece_movement_allowance(p)
 	let u = 0
 	if (x === REINFORCEMENTS) {
 		x = find_reinforcement_hex(p)
 		u = 1
-		move_seen[x-1000] = 3
+		move_seen[x-1000] = 1
 	}
+
 	for (let hq of data.pieces[p].hq) {
 		let hq_hex = piece_hex(hq)
 		if (is_map_hex(hq_hex)) {
@@ -1308,67 +1342,102 @@ function search_move(p) {
 }
 
 function search_move_normal(start, ma, hq_hex, hq_range, is_cav) {
-	move_cost.fill(0)
-	move_cost[start-1000] = ma
 	let queue = [ start ]
+
+	move_cost.fill(255)
+	move_cost[start-1000] = ma
+
 	while (queue.length > 0) {
 		let here = queue.shift()
+		let mp = move_cost[here-1000]
+
 		for_each_adjacent(here, next => {
-			if (can_move_into(here, next, hq_hex, hq_range, is_cav)) {
-				let mp = move_cost[here-1000] - 1
-				move_seen[next-1000] |= 1
-				if (!must_stop_stream(here, next) && !must_flip_zoc(here, next, is_cav))
-					move_seen[next-1000] |= 2
-				else
-					mp = 0
-				if (must_stop_zoc_zoi(here, next, is_cav))
-					mp = 0
-				if (mp > move_cost[next-1000]) {
-					move_cost[next-1000] = mp
+			if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
+				return
+
+			let next_mp = mp - 1
+			if (must_stop_stream(here, next))
+				next_mp = -1
+			else if (must_flip_zoc(here, next, is_cav))
+				next_mp = -1
+			else if (must_stop_zoc_zoi(here, next, is_cav))
+				next_mp = 0
+			
+			let seen_mp = move_cost[next-1000]
+			if (seen_mp === 255 || next_mp > seen_mp) {
+				map_set(move_from, next, here)
+				move_seen[next-1000] = 1
+				move_cost[next-1000] = next_mp
+
+				// can move without flipping!
+				if (next_mp >= 0)
+					move_flip[next-1000] = 0
+
+				// can continue
+				if (next_mp > 0)
 					queue.push(next)
-				}
 			}
 		})
 	}
 }
 
 function search_move_road(start, ma, hq_hex, hq_range, is_cav) {
-	move_cost.fill(0)
-	move_cost[start-1000] = ma
 	let queue = [ start ]
+
+	move_cost.fill(255)
+	move_cost[start-1000] = ma
+	move_seen[start-1000] = 1
+
 	while (queue.length > 0) {
 		let here = queue.shift()
 		for (let [road_id, k] of data_roads[here-1000]) {
 			let road = data.map.roads[road_id]
 			if (k + 1 < road.length)
-				search_move_road_segment(queue, road, k, 1, hq_hex, hq_range, is_cav)
+				search_move_road_segment(queue, here, road, k, 1, hq_hex, hq_range, is_cav)
 			if (k > 0)
-				search_move_road_segment(queue, road, k, -1, hq_hex, hq_range, is_cav)
+				search_move_road_segment(queue, here, road, k, -1, hq_hex, hq_range, is_cav)
 		}
 	}
 }
 
-function search_move_road_segment(queue, road, cur, dir, hq_hex, hq_range, is_cav) {
-	let here = road[cur]
+function search_move_road_segment(queue, here, road, cur, dir, hq_hex, hq_range, is_cav) {
 	let mp = move_cost[here-1000]
+	let qq = false
 	cur += dir
+
 	while (mp > 0 && cur >= 0 && cur < road.length) {
 		let next = road[cur]
+
 		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
 			return
-		move_seen[next-1000] |= 1
-		if (!must_flip_zoc(here, next, is_cav))
-			move_seen[next-1000] |= 2
-		if (must_stop_zoc_zoi(here, next, is_cav))
+
+		let next_mp = mp - 1
+		if (must_flip_zoc(here, next, is_cav))
+			next_mp = -1
+		else if (must_stop_zoc_zoi(here, next, is_cav))
+			next_mp = 0
+
+		let seen_mp = move_cost[next-1000]
+		if (seen_mp === 255 || next_mp > seen_mp) {
+			map_set(move_from_road, next, here)
+			move_seen[next-1000] = 1
+			move_cost[next-1000] = next_mp
+
+			if (next_mp >= 0)
+				move_flip[next-1000] = 0
+
+			qq = (next_mp > 0)
+		} else {
 			return
-		here = next
+		}
+
 		cur += dir
-		mp --
+		here = next
+		mp = next_mp
 	}
-	if (mp > move_cost[here-1000]) {
-		move_cost[here-1000] = mp
+
+	if (qq)
 		queue.push(here)
-	}
 }
 
 function search_withdrawal(here) {
@@ -2307,6 +2376,15 @@ function array_insert(array, index, item) {
 	array[index] = item
 }
 
+function array_insert_pair(array, index, key, value) {
+	for (let i = array.length; i > index; i -= 2) {
+		array[i] = array[i-2]
+		array[i+1] = array[i-1]
+	}
+	array[index] = key
+	array[index+1] = value
+}
+
 // Set as plain sorted array
 
 function set_has(set, item) {
@@ -2356,4 +2434,40 @@ function set_delete(set, item) {
 			return
 		}
 	}
+}
+
+// Map as plain sorted array of key/value pairs
+
+function map_has(map, key) {
+	let a = 0
+	let b = (map.length >> 1) - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = map[m<<1]
+		if (key < x)
+			b = m - 1
+		else if (key > x)
+			a = m + 1
+		else
+			return true
+	}
+	return false
+}
+
+function map_set(map, key, value) {
+	let a = 0
+	let b = (map.length >> 1) - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = map[m<<1]
+		if (key < x)
+			b = m - 1
+		else if (key > x)
+			a = m + 1
+		else {
+			map[(m<<1)+1] = value
+			return
+		}
+	}
+	array_insert_pair(map, a<<1, key, value)
 }
