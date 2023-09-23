@@ -4,7 +4,7 @@
 
 // TODO: recall grand battery if alone
 // TODO: rain effect on movement
-// TODO goto_british_line_of_communication_angst
+// TODO: enemy or enemy zoc on entry or adjacent hex special case retreat/recall
 
 const P1 = "French"
 const P2 = "Coalition"
@@ -813,11 +813,9 @@ function goto_organization_phase() {
 	// British Line of Communication Angst
 	let n = 0
 	for (let p of aa_det)
-		if (piece_is_on_map(p) || piece_hex(p) === ELIMINATED) {
-		console.log("P" + p, piece_name(p), piece_hex(p), piece_is_on_map(p))
+		if (piece_is_on_map(p) || piece_hex(p) === ELIMINATED)
 			++n
-			}
-	console.log("aa dets=" + n)
+
 	if (n < 3) {
 		if (piece_hex(HILL_2) === SWAPPED && piece_hex(HILL_1) !== ELIMINATED) {
 			log("Substituted P" + HILL_2 + ".")
@@ -1695,7 +1693,10 @@ function goto_resolve_attack() {
 	if (is_bridge(a_hex, d_hex))
 		d_drm += log_drm(1, "Bridge")
 
-	d_drm += log_drm(piece_stars(d_unit), "Battle Stars")
+	// ERRATA: No stars for Cav defending in Town
+	// https://boardgamegeek.com/thread/2456286/article/35214829#35214829
+	if (!(town && piece_is_cavalry(d_unit)))
+		d_drm += log_drm(piece_stars(d_unit), "Battle Stars")
 
 	for (let hq of enemy_hqs())
 		if (piece_mode(hq) && pieces_are_associated(hq, d_unit))
@@ -2047,6 +2048,8 @@ function setup_june_15() {
 	setup_piece("Prussian", "I Detachment (Pirch)", 1217)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
 
+	log(".h1 Turn " + game.turn)
+
 	bring_on_reinforcements()
 	goto_movement_phase()
 }
@@ -2083,6 +2086,8 @@ function setup_june_16() {
 	setup_piece("Prussian", "III Corps (Thielmann)", 1737)
 	setup_piece("Prussian", "IV Corps (Bulow)", 3)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
+
+	log(".h1 Turn " + game.turn)
 
 	bring_on_reinforcements()
 	goto_detachment_placement_step()
