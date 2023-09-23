@@ -357,6 +357,7 @@ function recall_grand_battery_alone() {
 }
 
 function recall_detachment(p) {
+	log("Recalled P" + p + " from " + piece_hex(p) + ".")
 	if (set_has(p1_det, p))
 		set_piece_hex(p, AVAILABLE_P1)
 	else
@@ -509,6 +510,7 @@ states.place_hq_where = {
 		pop_undo()
 	},
 	hex(x) {
+		log("Placed P" + game.who + " at " + x + ".")
 		set_piece_hex(game.who, x)
 		game.who = -1
 		game.state = "place_hq"
@@ -617,6 +619,7 @@ states.return_blown_where = {
 		pop_undo()
 	},
 	hex(x) {
+		log("Returned P" + game.who + " at " + x + ".")
 		set_piece_hex(game.who, x)
 		game.who = -1
 		game.state = "return_blown"
@@ -771,6 +774,7 @@ states.place_detachment_where = {
 		game.state = "place_detachment_who"
 	},
 	hex(x) {
+		log("Placed P" + game.who + " at " + x + ".")
 		set_piece_hex(game.who, x)
 		game.target = -1
 		game.who = -1
@@ -945,11 +949,15 @@ states.withdrawal_to = {
 	prompt() {
 		prompt("Withdraw " + piece_name(game.who) + ".")
 		update_zoc()
+
 		let list = search_withdrawal(piece_hex(game.who))
-		if (list.length > 0)
+		if (list.length > 0) {
 			view.actions.hex = list
-		else
+			view.move_from = move_from
+		} else {
 			view.actions.blow = 1
+		}
+
 		gen_action_piece(game.who)
 	},
 	piece(p) {
@@ -962,6 +970,7 @@ states.withdrawal_to = {
 		next_withdrawal()
 	},
 	hex(x) {
+		log("Withdrew P" + game.who + " to " + x + ".")
 		set_piece_hex(game.who, x)
 		game.who = -1
 		recall_grand_battery_alone()
@@ -1023,7 +1032,7 @@ function next_movement() {
 }
 
 function pass_movement() {
-	log(game.active + " passed movement.")
+	log(game.active + " passed.")
 	if (game.remain > 0) {
 		end_movement()
 	} else {
@@ -1103,10 +1112,11 @@ states.movement_to = {
 		view.move_from = move_from
 		view.move_from_road = move_from_road
 
+		let here = piece_hex(game.who)
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				if (move_seen[x-1000]) {
+				if (x !== here && move_seen[x-1000]) {
 					if (move_flip[x-1000])
 						gen_action_stop_hex(x)
 					else
@@ -1127,12 +1137,10 @@ states.movement_to = {
 		update_zoc()
 		search_move(game.who)
 
+		let from = piece_hex(game.who)
 		set_piece_hex(game.who, x)
 
-		if (game.active === P1)
-			log("F: P" + game.who + " moved to " + x)
-		else
-			log("C: P" + game.who + " moved to " + x)
+		log("Moved P" + game.who + " from " + from + " to " + x + ".")
 
 		// must flip (stream without road, or enter zoc)
 		if (move_flip[x-1000])
@@ -1328,6 +1336,7 @@ function search_move(p) {
 		x = find_reinforcement_hex(p)
 		u = 1
 		move_seen[x-1000] = 1
+		move_flip[x-1000] = 0
 	}
 
 	for (let hq of data.pieces[p].hq) {
@@ -1346,6 +1355,7 @@ function search_move_normal(start, ma, hq_hex, hq_range, is_cav) {
 
 	move_cost.fill(255)
 	move_cost[start-1000] = ma
+	move_flip[start-1000] = 0
 
 	while (queue.length > 0) {
 		let here = queue.shift()
@@ -1448,6 +1458,7 @@ function search_withdrawal(here) {
 			from_list.push(from)
 	})
 	let result = []
+	move_from.length = 0
 	search_retreat(result, here, from_list, 3)
 	return result
 }
@@ -1475,6 +1486,8 @@ function search_retreat(result, here, from_list, n) {
 		// can't cross river
 		if (is_river(here, next))
 			return
+
+		map_set(move_from, next, here)
 
 		if (n > 1)
 			search_retreat(result, next, from_list, n - 1)
@@ -1525,7 +1538,6 @@ function pass_attack() {
 	} else {
 		set_next_player()
 		game.remain = roll_die()
-		console.log("roll", game.remain)
 		log("Rolled D" + game.remain)
 		if (!can_attack_any())
 			pass_attack()
@@ -1905,7 +1917,9 @@ states.retreat_attacker = {
 	prompt() {
 		prompt("Attack: Retreat attacker.")
 		let result = []
+		move_from.length = 0
 		search_retreat(result, piece_hex(game.who), [ piece_hex(game.target) ], 3)
+		view.move_from = move_from
 		if (result.length === 0)
 			view.actions.blow = 1
 		for (let x of result)
@@ -1945,7 +1959,9 @@ states.retreat_defender = {
 	prompt() {
 		prompt("Attack: Retreat defender.")
 		let result = []
+		move_from.length = 0
 		search_retreat(result, piece_hex(game.target), [ piece_hex(game.who) ], 3)
+		view.move_from = move_from
 		if (result.length === 0)
 			view.actions.blow = 1
 		for (let x of result)
@@ -1967,8 +1983,6 @@ states.retreat_defender = {
 
 function goto_pursuit() {
 	update_zoc()
-
-	console.log("PURSUIT", game.active)
 
 	if (!hex_has_any_piece(game.attack, enemy_units()) && piece_is_not_in_enemy_zoc(game.who)) {
 		set_piece_hex(game.who, game.attack)
@@ -2157,6 +2171,7 @@ function setup_june_16() {
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
 
 	log(".h1 Turn " + game.turn)
+	log(".h2 Command Phase")
 
 	bring_on_reinforcements()
 	goto_detachment_placement_step()

@@ -186,18 +186,6 @@ function show_move_path(x) {
 	if (!is_action("hex", x) && !is_action("stop_hex", x))
 		return
 
-	if (view.move_from_road && map_get(view.move_from_road, x, 0)) {
-		_move_path = []
-		for (let i = 0; x && i < 100; ++i) {
-			_move_path.push(x)
-			x = map_get(view.move_from_road, x, 0)
-		}
-		for (let x of _move_path)
-			ui.hexes[x].classList.add("road")
-	}
-
-	else
-
 	if (view.move_from && map_get(view.move_from, x, 0)) {
 		_move_path = []
 		for (let i = 0; x && i < 100; ++i) {
@@ -206,6 +194,18 @@ function show_move_path(x) {
 		}
 		for (let x of _move_path)
 			ui.hexes[x].classList.add("move")
+	}
+
+	else
+
+	if (view.move_from_road && map_get(view.move_from_road, x, 0)) {
+		_move_path = []
+		for (let i = 0; x && i < 100; ++i) {
+			_move_path.push(x)
+			x = map_get(view.move_from_road, x, 0)
+		}
+		for (let x of _move_path)
+			ui.hexes[x].classList.add("road")
 	}
 
 }

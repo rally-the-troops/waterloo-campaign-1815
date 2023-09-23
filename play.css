@@ -172,10 +172,12 @@ main {
 
 .hex.move {
 	background-color: #0a04;
+	z-index: 100;
 }
 
 .hex.road {
 	background-color: #8804;
+	z-index: 100;
 }
 
 .hex.move.stop, .hex.road.stop {
