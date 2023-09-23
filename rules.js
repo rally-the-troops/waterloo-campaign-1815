@@ -420,11 +420,8 @@ function update_zoc() {
 // === COMMAND PHASE ===
 
 function goto_command_phase() {
-	log("")
 	log(".h1 Turn " + game.turn)
-	log("")
 	log(".h2 Command Phase")
-	log("")
 	bring_on_reinforcements()
 	goto_hq_placement_step()
 }
@@ -839,7 +836,6 @@ function goto_organization_phase() {
 		}
 	}
 
-	log("")
 	log(".h2 Organization Phase")
 
 	// F: ADVANCE FORMATION
@@ -877,7 +873,6 @@ function can_withdraw_any() {
 }
 
 function goto_withdrawal() {
-	log("")
 	log(".h2 Withdrawal")
 	game.remain = 0
 	game.active = P2
@@ -999,9 +994,7 @@ function can_move_any() {
 }
 
 function goto_movement_phase() {
-	log("")
 	log(".h2 Movement Phase")
-	log("")
 	game.remain = 0
 	game.active = P2
 	next_movement()
@@ -1129,6 +1122,11 @@ states.movement_to = {
 		search_move(game.who)
 
 		set_piece_hex(game.who, x)
+
+		if (game.active === P1)
+			log("F: P" + game.who + " moved to " + x)
+		else
+			log("C: P" + game.who + " moved to " + x)
 
 		// must flip (stream without road, or enter zoc)
 		if (!(move_seen[x-1000] & 2))
@@ -1428,9 +1426,7 @@ function can_attack_any() {
 }
 
 function goto_attack_phase() {
-	log("")
 	log(".h2 Attack Phase")
-	log("")
 	game.remain = 0
 	game.active = P2
 	next_attack()

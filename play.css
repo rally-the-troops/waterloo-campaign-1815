@@ -1,0 +1,357 @@
+header { background-color: hsl(39, 25%, 75%); }
+#replay_panel { background-color: hsl(39, 25%, 75%);; }
+#log { background-color: hsl(51, 63%, 92%); }
+#log .h1 { background-color: hsl(48, 26%, 65%); }
+#log .h2 { background-color: hsl(39, 25%, 75%); }
+
+body.French header.your_turn { background-color:  hsl(195, 72%, 75%); }
+#role_French .role_name { background-color:  hsl(195, 72%, 80%); }
+body.Coalition header.your_turn { background-color: white; }
+#role_Coalition .role_name { background-color: white; }
+
+#log { padding-top: 0 }
+#log .h1 { font-weight: bold; padding-top:2px; padding-bottom:2px; }
+#log .h2 { padding-top:1px; padding-bottom:1px; }
+#log .h1, .h2 {
+	margin: 9px 0;
+	text-align: center;
+	border-bottom: 1px solid #444;
+	border-top: 1px solid #444;
+}
+
+#log div { padding-left: 20px; text-indent: -12px; }
+#log div.i { padding-left: 32px; text-indent: -12px; }
+
+main {
+	background-color: dimgray;
+}
+
+#mapwrap {
+	margin: 0 auto;
+	width: 2550px;
+	height: 1900px;
+}
+
+#map {
+	position: absolute;
+	width: 2550px;
+	height: 1900px;
+}
+
+#board, #tracks, #hexes, #pieces {
+	position: absolute;
+}
+
+#board {
+	top: 0px;
+	left: 0px;
+	width: 2550px;
+	height: 1650px;
+	background-color: #803a3b;
+	background-image: url(images/map75.jpg);
+	background-size: 2550px 1650px;
+	box-shadow: 0 0 8px #0008;
+}
+
+#tracks {
+	top: 1650px;
+	left: 0px;
+	width: 600px;
+	height: 250px;
+	background-color: #d0c5b1;
+	background-size: 600px 250px;
+	background-position: 0px 0px;
+	background-repeat: no-repeat;
+	background-image: url(images/tracks75.webp);
+	box-shadow: 0 0 8px #0008;
+}
+
+@media (min-resolution:97dpi) {
+	#board { background-image: url(images/map150.jpg); }
+	#tracks { background-image: url(images/tracks150.webp); }
+}
+
+#hexes, #pieces, #labels { position: absolute }
+
+.label {
+	user-select: none;
+	position: absolute;
+	text-align: center;
+	font-family: "Source Serif SmText";
+	//font-weight: bold;
+	font-size: 10px;
+	line-height: 1em;
+	color: black;
+	text-shadow:
+		-1px -1px 1px white,
+		1px -1px 1px white,
+		1px 1px 1px white,
+		-1px 1px 1px white,
+		0 0 6px white
+		;
+}
+
+#label_3002,
+#label_1217,
+#label_1204,
+#label_1737,
+#label_3925,
+#label_2911
+{
+	font-size: 14px;
+	font-variant: small-caps;
+}
+
+#label_1015,
+#label_1018,
+#label_1021,
+#label_1024,
+#label_1100,
+#label_1201,
+#label_1239,
+#label_1401,
+#label_1407,
+#label_1830,
+#label_1928,
+#label_2035,
+#label_2123,
+#label_2223,
+#label_2327,
+#label_2537,
+#label_2715,
+#label_3013,
+#label_3031,
+#label_3206,
+#label_3226,
+#label_3231,
+#label_3233,
+#label_3441,
+#label_3719,
+#label_3723,
+#label_3803
+{
+	margin-top: -10px
+}
+
+#label_1800,
+#label_2324,
+#label_2500,
+#label_3327,
+#label_3708
+{
+	margin-top: -30px;
+}
+
+#label_1118
+{
+	margin-top: -15px;
+	margin-left: 10px;
+}
+
+.hex {
+	box-sizing: border-box;
+	position: absolute;
+	border-radius: 50%;
+	border: 2px solid transparent;
+}
+
+.hex.town { background-color: #F006; }
+.hex.stream { background-color: #00F6; }
+.hex.town.stream { background-color: #F0F6; }
+
+.hex.action {
+	border: 4px solid #fff6;
+	background-color: #fff2;
+	box-shadow: 0 0 3px #0008;
+	z-index: 100;
+}
+
+.hex.action.stop {
+	background-color: #f002;
+}
+
+.hexside {
+	position: absolute;
+	display: none;
+	transform-origin: 0 0;
+	width: 58px;
+	height: 4px;
+}
+
+.hexside.s1 { transform: rotate(-60deg) }
+.hexside.s2 { transform: rotate(-120deg) }
+
+.hexside.road {
+	display: block;
+	background-color: brown;
+}
+
+.hexside.river {
+	display: block;
+	background-color: blue;
+}
+
+.hexside.road.river {
+	display: block;
+	background-color: green;
+}
+
+.large {
+	position: absolute;
+	background-size: 84px auto;
+	width: 42px;
+	height: 42px;
+}
+
+.small {
+	position: absolute;
+	background-size: 34px auto;
+	width: 34px;
+	height: 34px;
+}
+
+.large, .small {
+	transition-property: top, left;
+	transition-duration: 500ms;
+	transition-timing-function: ease;
+	border-width: 2px;
+	border-style: solid;
+	box-shadow: 0 0 0 1px #444, 0 0 4px #0008;
+}
+
+.large.action, .small.action {
+	box-shadow: 0 0 0 1px #444, 0 0 0 4px white;
+}
+
+.large.selected, .small.selected {
+	box-shadow: 0 0 0 1px #444, 0 0 0 4px yellow;
+}
+
+.large.target, .small.target {
+	box-shadow: 0 0 0 1px #444, 0 0 0 3px black;
+}
+
+.large.support, .small.support {
+	box-shadow: 0 0 0 1px #444, 0 0 0 3px green;
+}
+
+.large.selected.action, .small.selected.action {
+	box-shadow: 0 0 0 1px #444, 0 0 0 3px mediumblue, 0 0 0 5px white;
+}
+
+.large.target.action, .small.target.action {
+	box-shadow: 0 0 0 1px #444, 0 0 0 3px black, 0 0 0 6px white;
+}
+
+.hex.tip {
+	border: 4px solid #f008;
+	z-index: 200;
+}
+
+#arrow {
+	opacity: 80%;
+	position: absolute;
+	top: 1559px;
+	left: 36px;
+	width: 50px;
+	z-index: 300;
+	pointer-events: none;
+	height: 50px;
+	background-size: cover;
+	background-image: url(images/arrow.svg);
+	transform-origin: 25px 50px;
+	filter: drop-shadow(0 0 3px white);
+}
+
+#arrow.r0 { transform: rotate(30deg) }
+#arrow.r1 { transform: rotate(90deg) }
+#arrow.r2 { transform: rotate(150deg) }
+#arrow.r3 { transform: rotate(210deg) }
+#arrow.r4 { transform: rotate(270deg) }
+#arrow.r5 { transform: rotate(330deg) }
+
+div.french.tip, div.anglo.tip, div.prussian.tip {
+	box-shadow: 0 0 0 4px #f008;
+	z-index: 200;
+}
+
+.marker { border-color: hsl(199,65%,85%) hsl(199,55%,50%) hsl(199,55%,50%) hsl(199,65%,85%) }
+.large.french, .small.french { border-color: hsl(199,85%,90%) hsl(199,75%,70%) hsl(199,75%,70%) hsl(199,85%,90%) }
+.large.anglo, .small.anglo { border-color: hsl(0,0%,90%) hsl(0,0%,70%) hsl(0,0%,70%) hsl(0,0%,90%) }
+.large.prussian, .small.prussian { border-color: hsl(202,10%,70%) hsl(202,10%,50%) hsl(202,10%,50%) hsl(202,10%,70%) }
+
+.large.french { background-image: url(images/sheet_french1_75.webp) }
+.large.anglo { background-image: url(images/sheet_anglo1_75.webp) }
+.large.prussian { background-image: url(images/sheet_prussian1_75.webp) }
+.large.marker { background-image: url(images/sheet_misc_75.webp) }
+.small.french { background-image: url(images/sheet_french2_75.webp) }
+.small.anglo { background-image: url(images/sheet_anglo2_75.webp) }
+.small.prussian { background-image: url(images/sheet_prussian2_75.webp) }
+
+@media (min-resolution:97dpi) {
+.large.french { background-image: url(images/sheet_french1_150.webp) }
+.large.anglo { background-image: url(images/sheet_anglo1_150.webp) }
+.large.prussian { background-image: url(images/sheet_prussian1_150.webp) }
+.large.marker { background-image: url(images/sheet_misc_150.webp) }
+.small.french { background-image: url(images/sheet_french2_150.webp) }
+.small.anglo { background-image: url(images/sheet_anglo2_150.webp) }
+.small.prussian { background-image: url(images/sheet_prussian2_150.webp) }
+}
+
+.large.y1 { background-position: -0px -0px }
+.large.y2 { background-position: -0px -42px }
+.large.y3 { background-position: -0px -84px }
+.large.y4 { background-position: -0px -126px }
+.large.y5 { background-position: -0px -168px }
+.large.y6 { background-position: -0px -210px }
+.large.y7 { background-position: -0px -252px }
+.large.y8 { background-position: -0px -294px }
+.large.y9 { background-position: -0px -336px }
+.large.y10 { background-position: -0px -378px }
+.large.y11 { background-position: -0px -420px }
+
+.large.flip.y1 { background-position: -42px -0px }
+.large.flip.y2 { background-position: -42px -42px }
+.large.flip.y3 { background-position: -42px -84px }
+.large.flip.y4 { background-position: -42px -126px }
+.large.flip.y5 { background-position: -42px -168px }
+.large.flip.y6 { background-position: -42px -210px }
+.large.flip.y7 { background-position: -42px -252px }
+.large.flip.y8 { background-position: -42px -294px }
+.large.flip.y9 { background-position: -42px -336px }
+.large.flip.y10 { background-position: -42px -378px }
+.large.flip.y11 { background-position: -42px -420px }
+
+.small.y1 { background-position: 0px 0px }
+.small.y2 { background-position: 0px -34px }
+.small.y3 { background-position: 0px -68px }
+.small.y4 { background-position: 0px -102px }
+.small.y5 { background-position: 0px -136px }
+.small.y6 { background-position: 0px -170px }
+
+.small.flip.y1 { background-position: -34px -0px }
+.small.flip.y2 { background-position: -34px -34px }
+.small.flip.y3 { background-position: -34px -68px }
+.small.flip.y4 { background-position: -34px -102px }
+.small.flip.y5 { background-position: -34px -136px }
+.small.flip.y6 { background-position: -34px -170px }
+
+#log .dice {
+	display: inline-block;
+	vertical-align: -2px;
+	width: 12px;
+	height: 12px;
+	background-size: 600% 100%;
+	background-repeat: no-repeat;
+	background-image: url(images/die_black_pips.svg);
+	background-color: gold;
+	border: 1px solid black;
+}
+
+.d0 { background-position: -100% 0 }
+.d1 { background-position: 0% 0; }
+.d2 { background-position: 20% 0; }
+.d3 { background-position: 40% 0; }
+.d4 { background-position: 60% 0; }
+.d5 { background-position: 80% 0; }
+.d6 { background-position: 100% 0; }
