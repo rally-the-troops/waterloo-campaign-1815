@@ -1054,7 +1054,11 @@ function end_withdrawal() {
 
 states.withdrawal = {
 	prompt() {
-		prompt("Withdrawal.")
+		if (game.remain > 0)
+			prompt("Withdrawal: " + game.remain + " withdrawals remain.")
+		else
+			prompt("Withdrawal.")
+
 		update_zoc()
 		for (let p of friendly_corps())
 			if (piece_is_in_enemy_zoc(p))
@@ -1214,7 +1218,16 @@ states.movement = {
 	prompt() {
 		let may_pass = 1
 
-		prompt("Movement.")
+		let remain = game.remain
+		if (game.turn <= 2 && game.active === P1)
+			remain = Math.min(remain, game.french_moves)
+		if (game.turn === 2 && game.active === P2)
+			remain = Math.min(remain, game.prussian_moves)
+
+		if (game.remain > 0)
+			prompt("Movement: " + game.remain + " moves remain.")
+		else
+			prompt("Movement.")
 
 		update_zoc()
 
@@ -1229,7 +1242,6 @@ states.movement = {
 		// June 15: Congestion
 		if (game.turn <= 2 && game.active === P1) {
 			if (game.french_moves === 0) {
-				view.prompt += " Congestion."
 				view.actions.pass = 1
 				return
 			}
@@ -1238,7 +1250,6 @@ states.movement = {
 		// June 15: Concentrating the Army
 		if (game.turn === 2 && game.active === P2) {
 			if (game.prussian_moves === 0) {
-				view.prompt += " Concentrating the Army."
 				view.actions.pass = 1
 				return
 			}
@@ -1794,7 +1805,10 @@ function end_attack() {
 
 states.attack = {
 	prompt() {
-		prompt("Attack!")
+		if (game.remain > 0)
+			prompt("Attack: " + game.remain + " attacks remain.")
+		else
+			prompt("Attack!")
 		update_zoc()
 		for (let p of friendly_corps())
 			if (piece_is_in_enemy_zoc(p))
