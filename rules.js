@@ -1446,7 +1446,7 @@ function search_detachment_normal(start, ma) {
 function search_detachment_road(start, range) {
 	let queue = [ start ]
 
-	move_cost.fill(0)
+	move_cost.fill(255)
 	move_cost[start-1000] = range
 	move_seen[start-1000] = 1
 
