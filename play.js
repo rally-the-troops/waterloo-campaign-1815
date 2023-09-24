@@ -128,6 +128,8 @@ let ui = {
 	stack: new Array(last_hex+1).fill(0),
 	turn: document.getElementById("marker_turn"),
 	remain: document.getElementById("marker_remain"),
+	french_moves: document.getElementById("marker_french_moves"),
+	prussian_moves: document.getElementById("marker_prussian_moves"),
 }
 
 function toggle_pieces() {
@@ -406,8 +408,37 @@ function on_update() {
 	ui.turn.style.left = (40 + TURN_X + (view.turn-1) * TURN_DX) + "px"
 	ui.turn.classList.toggle("flip", view.rain === 2)
 
-	ui.remain.style.left = (20 + 109 + (view.remain % 10) * 47.5 | 0) + "px"
-	ui.remain.classList.toggle("flip", view.remain > 9)
+	if (view.remain > 0) {
+		ui.remain.style.left = (20 + 109 + (view.remain % 10) * 47.5 | 0) + "px"
+		ui.remain.classList.toggle("flip", view.remain > 9)
+		ui.remain.classList.remove("hide")
+	} else {
+		ui.remain.classList.add("hide")
+	}
+
+	if (view.french_moves !== undefined) {
+		let x = (20 + 109 + (view.french_moves % 10) * 47.5 | 0)
+		ui.french_moves.style.left = x + "px"
+		ui.french_moves.classList.toggle("flip", view.french_moves > 9)
+		ui.french_moves.classList.remove("hide")
+	} else {
+		ui.french_moves.classList.add("hide")
+	}
+
+	if (view.prussian_moves !== undefined) {
+		let x = (20 + 109 + (view.prussian_moves % 10) * 47.5 | 0)
+		let y = 1857
+		if (view.prussian_moves === view.french_moves) {
+			x += 12
+			y -= 12
+		}
+		ui.prussian_moves.style.left = x + "px"
+		ui.prussian_moves.style.top = y + "px"
+		ui.prussian_moves.classList.toggle("flip", view.prussian_moves > 9)
+		ui.prussian_moves.classList.remove("hide")
+	} else {
+		ui.prussian_moves.classList.add("hide")
+	}
 
 	action_button("blow", "Blow")
 	action_button("roll", "Roll")

@@ -7,8 +7,6 @@
 
 // TODO: forbidden - enemy or enemy zoc on entry or adjacent hex special case retreat/recall
 
-// TODO: june 15 special rules
-
 // TODO: pause after last battle before next turn (do not auto-pass move and attack?)
 // TODO: confirm attack step?
 // TODO: roll attack step?
@@ -60,6 +58,7 @@ const HILL_1 = find_piece("II Corps (Hill*)")
 const HILL_2 = find_piece("II Corps (Hill**)")
 const IMPERIAL_GUARD = find_piece("Guard Corps (Drouot)")
 const IMPERIAL_GUARD_CAV = find_piece("Guard Cav Corps (Guyot)")
+const ZIETHEN = find_piece("I Corps (Ziethen)")
 
 function is_map_hex(x) {
 	if (x >= 1000 && x <= 4041)
@@ -178,12 +177,15 @@ const p1_inf = make_piece_list(p => p.side === P1 && p.type === "inf")
 const p2_inf = make_piece_list(p => p.side !== P1 && p.type === "inf")
 const p1_det = make_piece_list(p => p.side === P1 && p.type === "det")
 const p2_det = make_piece_list(p => p.side !== P1 && p.type === "det")
-const aa_det = make_piece_list(p => p.side === "Anglo" && p.type === "det")
 const p1_corps = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav"))
 const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav"))
 const p1_units = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const p2_units = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const all_units = make_piece_list(p => (p.type === "inf" || p.type === "cav" || p.type === "det"))
+
+const anglo_det = make_piece_list(p => p.side === "Anglo" && p.type === "det")
+const prussian_cav = make_piece_list(p => p.side === "Prussian" && p.type === "cav")
+const prussian_inf = make_piece_list(p => p.side === "Prussian" && p.type === "inf")
 
 function friendly_hqs() { return (game.active === P1) ? p1_hqs : p2_hqs }
 function enemy_hqs() { return (game.active !== P1) ? p1_hqs : p2_hqs }
@@ -433,25 +435,46 @@ function update_zoc() {
 
 // === COMMAND PHASE ===
 
-function goto_command_phase() {
+function count_french_reinforcements() {
+	let n = 0
+	for (let p of p1_corps)
+		if (piece_hex(p) === REINFORCEMENTS)
+			++n
+	return n
+}
+
+function init_turn() {
+	let die
+
 	log(".h1 Turn " + game.turn)
+
+	bring_on_reinforcements()
 
 	if (game.rain > 0)
 		game.rain--
 
 	if (game.turn === 1) {
-		log("Surprise!")
-		log("Road Congestion.")
+		log("Surprise:\nOnly P" + ZIETHEN + " can move.")
 	}
 
 	if (game.turn === 2) {
-		log("Delayed Reaction.")
-		log("Concentrating the Army.")
-		log("Road Congestion.")
+		log("Delayed Reaction:\nAnglo-Allied units cannot move.")
+		die = roll_die()
+		log("Concentrating the Army:\nD" + die + " Prussian moves.")
+		game.prussian_moves = die
+	}
+
+	if (game.turn <= 2) {
+		let n = 3
+		if (game.turn === 2)
+			n = count_french_reinforcements()
+		die = roll_die()
+		log("Road Congestion:\nD" + die + " + " + n + " French moves.")
+		game.french_moves = die + n
 	}
 
 	if (game.turn === 5 || game.turn === 6) {
-		let die = roll_die()
+		die = roll_die()
 		if (die <= 4) {
 			log("The Deluge:\nD" + die + " \u2013 Rain.")
 			game.rain = 2
@@ -463,8 +486,10 @@ function goto_command_phase() {
 	if (game.rain > 0)
 		log("Artillery Ricochet Ineffective.")
 
+}
+
+function goto_command_phase() {
 	log(".h2 Command")
-	bring_on_reinforcements()
 	goto_hq_placement_step()
 }
 
@@ -892,7 +917,7 @@ function goto_organization_phase() {
 
 	// British Line of Communication Angst
 	let n = 0
-	for (let p of aa_det)
+	for (let p of anglo_det)
 		if (piece_is_on_map(p) || piece_hex(p) === ELIMINATED)
 			++n
 
@@ -1111,6 +1136,12 @@ function next_movement() {
 
 function pass_movement() {
 	log(game.active + " passed.")
+
+	if (game.turn <= 2 && game.active === P1)
+		game.french_moves = 0
+	if (game.turn === 2 && game.active === P2)
+		game.prussian_moves = 0
+
 	if (game.remain > 0) {
 		end_movement()
 	} else {
@@ -1140,6 +1171,10 @@ function pass_movement() {
 }
 
 function end_movement() {
+	if (game.turn <= 2)
+		delete game.french_moves
+	if (game.turn === 2)
+		delete game.prussian_moves
 	goto_attack_phase()
 }
 
@@ -1148,6 +1183,44 @@ states.movement = {
 		prompt("Movement.")
 
 		update_zoc()
+
+		// June 15: Surprise
+		if (game.turn === 1 && game.active === P2) {
+			if (piece_is_not_in_enemy_zoc(ZIETHEN))
+				gen_action_piece(ZIETHEN)
+			view.actions.pass = 1
+			return
+		}
+
+		// June 15: Congestion
+		if (game.turn <= 2 && game.active === P1) {
+			if (game.french_moves === 0) {
+				view.prompt += " Congestion."
+				view.actions.pass = 1
+				return
+			}
+		}
+
+		// June 15: Concentrating the Army
+		if (game.turn === 2 && game.active === P2) {
+			if (game.prussian_moves === 0) {
+				view.prompt += " Concentrating the Army."
+				view.actions.pass = 1
+				return
+			}
+		}
+
+		// June 15: Delayed Reaction
+		if (game.turn === 2 && game.active === P2) {
+			for (let p of prussian_cav)
+				if (piece_is_not_in_enemy_cav_zoc(p))
+					gen_action_piece(p)
+			for (let p of prussian_inf)
+				if (piece_is_not_in_enemy_zoc(p))
+					gen_action_piece(p)
+			view.actions.pass = 1
+			return
+		}
 
 		let has_reinf = false
 		for (let info of data.reinforcements) {
@@ -1236,6 +1309,11 @@ states.movement_to = {
 		recall_grand_battery_alone()
 
 		// TODO: forbidden (retreat then next_movement)
+
+		if (game.turn <= 2 && game.active === P1)
+			--game.french_moves
+		if (game.turn === 2 && game.active === P2)
+			--game.prussian_moves
 
 		log("")
 		next_movement()
@@ -2119,6 +2197,7 @@ function goto_end_phase() {
 		recall_detachment(GRAND_BATTERY)
 
 	game.turn += 1
+	init_turn()
 	goto_command_phase()
 }
 
@@ -2245,9 +2324,8 @@ function setup_june_15() {
 	setup_piece("Prussian", "I Detachment (Pirch)", 1217)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
 
-	log(".h1 Turn " + game.turn)
+	init_turn()
 
-	bring_on_reinforcements()
 	goto_movement_phase()
 }
 
@@ -2284,10 +2362,10 @@ function setup_june_16() {
 	setup_piece("Prussian", "IV Corps (Bulow)", 3)
 	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
 
-	log(".h1 Turn " + game.turn)
+	init_turn()
+
 	log(".h2 Command")
 
-	bring_on_reinforcements()
 	goto_detachment_placement_step()
 }
 
@@ -2355,6 +2433,11 @@ exports.view = function (state, player) {
 		who: game.who,
 		target: game.target,
 	}
+
+	if (game.turn <= 2)
+		view.french_moves = game.french_moves
+	if (game.turn === 2)
+		view.prussian_moves = game.prussian_moves
 
 	if (game.state === "game_over") {
 		view.prompt = game.victory
