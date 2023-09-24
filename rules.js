@@ -2005,7 +2005,7 @@ function goto_resolve_attack() {
 
 	let d_die = roll_die()
 
-	if (town)
+	if (town && !piece_is_cavalry(d_unit))
 		d_drm += log_drm(1, "Town")
 
 	else if (is_bridge(a_hex, d_hex))
