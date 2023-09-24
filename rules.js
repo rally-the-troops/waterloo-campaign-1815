@@ -546,6 +546,7 @@ function can_return_blown_unit(p) {
 	for (let hq of friendly_hqs()) {
 		if (pieces_are_associated(p, hq)) {
 			for_each_adjacent(piece_hex(hq), x => {
+				// TODO: forbidden
 				if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
 					result = true
 			})
@@ -638,6 +639,7 @@ states.return_blown_where = {
 		for (let hq of friendly_hqs()) {
 			if (pieces_are_associated(game.who, hq)) {
 				for_each_adjacent(piece_hex(hq), x => {
+					// TODO: forbidden
 					if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
 						gen_action_hex(x)
 				})
@@ -732,6 +734,8 @@ states.place_detachment_hq = {
 
 function can_place_detachment(p, hq) {
 	let x = piece_hex(p)
+	// TODO: have available hex
+	// TODO: forbidden
 	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
 		if (pieces_are_associated(p, hq)) {
 			if (p === GRAND_BATTERY || p === OLD_GUARD) {
@@ -798,6 +802,7 @@ states.place_detachment_where = {
 				let x = 1000 + row * 100 + col
 				if (move_seen[x-1000])
 					if (!is_friendly_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_detachments()))
+						// TODO: forbidden
 						gen_action_hex(x)
 			}
 		}
@@ -1011,6 +1016,7 @@ states.withdrawal_to = {
 		next_withdrawal()
 	},
 	hex(x) {
+		// TODO: forbidden (withdraw again)
 		let from = piece_hex(game.who)
 		log("P" + game.who + "\tfrom " + from + "\nto " + x)
 		set_piece_hex(game.who, x)
@@ -1161,6 +1167,7 @@ states.movement_to = {
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
+				// TODO: forbidden?
 				if (x !== here && move_seen[x-1000]) {
 					if (move_flip[x-1000])
 						gen_action_stop_hex(x)
@@ -1198,6 +1205,8 @@ states.movement_to = {
 
 		game.who = -1
 		recall_grand_battery_alone()
+
+		// TODO: forbidden (retreat then next_movement)
 
 		log("")
 		next_movement()
@@ -1995,6 +2004,7 @@ states.retreat_attacker = {
 		log("P" + game.who + " retreated to " + x + ".")
 		eliminate_detachments_stacked_with_corps(game.who)
 		set_piece_hex(game.who, x)
+		// TODO: forbidden (retreat again)
 		next_attack()
 	},
 	piece(p) {
@@ -2033,6 +2043,7 @@ states.retreat_defender = {
 		log("P" + game.target + " retreated to " + x + ".")
 		eliminate_detachments_stacked_with_corps(game.target)
 		set_piece_hex(game.target, x)
+		// TODO: forbidden (retreat again)
 		set_next_player()
 		goto_pursuit()
 	},
@@ -2049,6 +2060,7 @@ function goto_pursuit() {
 
 	if (!hex_has_any_piece(game.attack, enemy_units()) && piece_is_not_in_enemy_zoc(game.who)) {
 		set_piece_hex(game.who, game.attack)
+		// TODO: forbidden (retreat then next_attack)
 		log("P" + game.who + " pursued.")
 		recall_grand_battery_alone()
 	}
