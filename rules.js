@@ -1215,6 +1215,8 @@ function end_movement() {
 
 states.movement = {
 	prompt() {
+		let may_pass = 1
+
 		prompt("Movement.")
 
 		update_zoc()
@@ -1263,8 +1265,12 @@ states.movement = {
 				for (let p of info.list) {
 					if (piece_hex(p) === REINFORCEMENTS) {
 						has_reinf = true
-						gen_action_piece(p)
-						break
+						if (can_piece_enter(p)) {
+							if (game.remain > 0)
+								may_pass = 0
+							gen_action_piece(p)
+							break
+						}
 					}
 				}
 			}
@@ -1279,7 +1285,7 @@ states.movement = {
 					gen_action_piece(p)
 		}
 
-		view.actions.pass = 1
+		view.actions.pass = may_pass
 	},
 	piece(p) {
 		push_undo()
@@ -1519,6 +1525,19 @@ function search_detachment_road_segment(queue, here, road, cur, dir) {
 
 	if (qq)
 		queue.push(here)
+}
+
+function can_piece_enter(p) {
+	let xs = find_reinforcement_hex(p)
+	if (typeof xs === "number") {
+		if (!hex_has_any_piece(xs, all_corps))
+			return true
+	} else {
+		for (let x of xs)
+			if (!hex_has_any_piece(x, all_corps))
+				return true
+	}
+	return false
 }
 
 function search_move(p) {
