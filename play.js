@@ -409,6 +409,7 @@ function on_update() {
 	ui.remain.style.left = (109 + (view.remain % 10) * 47.5 | 0) + "px"
 	ui.remain.classList.toggle("flip", view.remain > 9)
 
+	action_button("blow", "Blow")
 	action_button("roll", "Roll")
 	action_button("next", "Next")
 	action_button("end_step", "End step")
@@ -417,13 +418,13 @@ function on_update() {
 }
 
 const DICE = {
-	D0: '0',
-	D1: '1',
-	D2: '2',
-	D3: '3',
-	D4: '4',
-	D5: '5',
-	D6: '6',
+	D0: '[0]',
+	D1: '[1]',
+	D2: '[2]',
+	D3: '[3]',
+	D4: '[4]',
+	D5: '[5]',
+	D6: '[6]',
 }
 
 function sub_dice(match) {
