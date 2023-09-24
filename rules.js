@@ -181,6 +181,8 @@ const p1_corps = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.ty
 const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav"))
 const p1_units = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const p2_units = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
+
+const all_hqs = make_piece_list(p => (p.type === "hq"))
 const all_units = make_piece_list(p => (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const all_corps = make_piece_list(p => (p.type === "inf" || p.type === "cav"))
 
@@ -570,7 +572,7 @@ states.place_hq_where = {
 			let x = piece_hex(p)
 			if (is_map_hex(x) && pieces_are_associated(p, game.who)) {
 				for_each_within_x3(x, next => {
-					if (!is_enemy_zoc_or_zoi(next) && !hex_has_any_piece(next, friendly_hqs()))
+					if (!is_enemy_zoc_or_zoi(next) && !hex_has_any_piece(next, all_hqs))
 						gen_action_hex(next)
 				})
 			}
@@ -750,10 +752,16 @@ function begin_detachment_placement_step() {
 	game.count = 0
 	for (let p of friendly_hqs())
 		game.count |= (1 << p)
-	for (let hq of friendly_hqs())
-		for (let p of friendly_detachments())
+
+	update_zoc()
+	for (let hq of friendly_hqs()) {
+		for (let p of friendly_detachments()) {
+			search_detachment(p, hq)
 			if (can_place_detachment(p, hq))
 				return
+		}
+	}
+
 	end_detachment_placement_step()
 }
 
@@ -765,6 +773,43 @@ function end_detachment_placement_step() {
 	} else {
 		goto_detachment_recall_step()
 	}
+}
+
+function can_place_detachment_at(x) {
+	// NOTE: must have run search_detachment before calling!
+	// TODO: forbidden
+	return (
+		move_seen[x-1000] &&
+		!is_friendly_zoc_or_zoi(x) &&
+		!hex_has_any_piece(x, friendly_detachments()) &&
+		!hex_has_any_piece(x, enemy_detachments())
+	)
+}
+
+function can_place_detachment_anywhere(p, hq) {
+	// NOTE: must have run search_detachment before calling!
+	for (let row = 0; row < data.map.rows; ++row)
+		for (let col = 0; col < data.map.cols; ++col)
+			if (can_place_detachment_at(1000 + row * 100 + col))
+				return true
+	return false
+}
+
+function can_place_detachment(p, hq) {
+	// NOTE: must have run search_detachment before calling!
+	let x = piece_hex(p)
+	// TODO: forbidden
+	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
+		if (pieces_are_associated(p, hq)) {
+			if (p === GRAND_BATTERY || p === OLD_GUARD) {
+				if (hq === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
+					return can_place_detachment_anywhere(p, hq)
+			} else {
+				return can_place_detachment_anywhere(p, hq)
+			}
+		}
+	}
+	return false
 }
 
 states.place_detachment_hq = {
@@ -787,30 +832,18 @@ states.place_detachment_hq = {
 	},
 }
 
-function can_place_detachment(p, hq) {
-	let x = piece_hex(p)
-	// TODO: have available hex
-	// TODO: forbidden
-	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
-		if (pieces_are_associated(p, hq)) {
-			if (p === GRAND_BATTERY || p === OLD_GUARD) {
-				if (hq === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
-					return true
-			} else {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 states.place_detachment_who = {
 	prompt() {
 		prompt("Place Detachment: Select an available detachment.")
+
 		gen_action_piece(game.target)
-		for (let p of friendly_detachments())
+
+		update_zoc()
+		for (let p of friendly_detachments()) {
+			search_detachment(p, game.target)
 			if (can_place_detachment(p, game.target))
 				gen_action_piece(p)
+		}
 	},
 	piece(p) {
 		if (p === game.target) {
@@ -824,6 +857,8 @@ states.place_detachment_who = {
 
 states.place_detachment_where = {
 	prompt() {
+		update_zoc()
+
 		prompt("Place " + piece_name(game.who) + ".")
 		gen_action_piece(game.who)
 
@@ -845,19 +880,11 @@ states.place_detachment_where = {
 			return
 		}
 
-		update_zoc()
-
 		search_detachment(game.who, game.target)
-
-		for (let row = 0; row < data.map.rows; ++row) {
-			for (let col = 0; col < data.map.cols; ++col) {
-				let x = 1000 + row * 100 + col
-				if (move_seen[x-1000])
-					if (!is_friendly_zoc_or_zoi(x) && !hex_has_any_piece(x, friendly_detachments()))
-						// TODO: forbidden
-						gen_action_hex(x)
-			}
-		}
+		for (let row = 0; row < data.map.rows; ++row)
+			for (let col = 0; col < data.map.cols; ++col)
+				if (can_place_detachment_at(1000 + row * 100 + col))
+					gen_action_hex(1000 + row * 100 + col)
 	},
 	piece(p) {
 		game.who = -1
