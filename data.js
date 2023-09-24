@@ -233,7 +233,7 @@ data.reinforcements = [
 	{
 		turn: 1,
 		side: "French",
-		hex: 1018,
+		hex: [1017, 1018],
 		list: [
 			"III Corps (Vandamme)",
 			"VI Corps (Lobau)",

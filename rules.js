@@ -182,6 +182,7 @@ const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.ty
 const p1_units = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const p2_units = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const all_units = make_piece_list(p => (p.type === "inf" || p.type === "cav" || p.type === "det"))
+const all_corps = make_piece_list(p => (p.type === "inf" || p.type === "cav"))
 
 const anglo_det = make_piece_list(p => p.side === "Anglo" && p.type === "det")
 const prussian_cav = make_piece_list(p => p.side === "Prussian" && p.type === "cav")
@@ -1117,11 +1118,11 @@ function goto_movement_phase() {
 }
 
 function next_movement() {
-	clear_undo()
 	game.state = "movement"
 	game.who = -1
 
 	if (game.remain === 0) {
+		clear_undo()
 		set_next_player()
 	} else {
 		if (--game.remain === 0) {
@@ -1171,6 +1172,7 @@ function pass_movement() {
 }
 
 function end_movement() {
+	clear_undo()
 	if (game.turn <= 2)
 		delete game.french_moves
 	if (game.turn === 2)
@@ -1501,13 +1503,33 @@ function search_move(p) {
 	let x = piece_hex(p)
 	let m = piece_movement_allowance(p)
 	let u = 0
-	if (x === REINFORCEMENTS) {
-		x = find_reinforcement_hex(p)
-		u = 1
-		move_seen[x-1000] = 1
-		move_flip[x-1000] = 0
-	}
 
+	if (x === REINFORCEMENTS) {
+		let xs = find_reinforcement_hex(p)
+		if (typeof xs === "number") {
+			x = xs
+			if (!hex_has_any_piece(x, all_corps)) {
+				u = 1
+				move_seen[x-1000] = 1
+				move_flip[x-1000] = 0
+				search_move_imp(p, m, 1, x)
+			}
+		} else {
+			for (x of xs) {
+				if (!hex_has_any_piece(x, all_corps)) {
+					u = 1
+					move_seen[x-1000] = 1
+					move_flip[x-1000] = 0
+					search_move_imp(p, m, 1, x)
+				}
+			}
+		}
+	} else {
+		search_move_imp(p, m, 0, x)
+	}
+}
+
+function search_move_imp(p, m, u, x) {
 	for (let hq of data.pieces[p].hq) {
 		let hq_hex = piece_hex(hq)
 		if (is_map_hex(hq_hex)) {

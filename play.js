@@ -72,6 +72,7 @@ const TURN_DX = 70
 
 const REINF_OFFSET = {
 	1015: [ hex_dx/2, hex_dy * 3/4 ],
+	1017: [ hex_dx/2, hex_dy * 3/4 ],
 	1018: [ -hex_dx/2, hex_dy * 3/4 ],
 	1020: [ -hex_dx/2, hex_dy * 3/4 ],
 	3000: [ -hex_dx/2, 0 ],
@@ -333,6 +334,8 @@ function on_update() {
 			let x, y
 			if (hex === REINFORCEMENTS) {
 				hex = find_reinforcement_hex(id)
+				if (typeof hex !== "number")
+					hex = hex[0]
 				s = find_reinforcement_z(id)
 				z = 4 - s
 				x = ui.hex_x[hex] + s * 24
