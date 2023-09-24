@@ -10,7 +10,7 @@
 
 // TODO: june 15 special rules
 
-// TODO: pause after last battle before next turn
+// TODO: pause after last battle before next turn (do not auto-pass move and attack?)
 // TODO: confirm attack step?
 // TODO: roll attack step?
 
@@ -360,9 +360,11 @@ function eliminate_detachments_stacked_with_corps(c) {
 }
 
 function recall_grand_battery_alone() {
-	let x = piece_hex(GRAND_BATTERY)
-	if (is_map_hex(x) && !hex_has_any_piece(x, friendly_corps()))
-		recall_detachment(GRAND_BATTERY)
+	if (game.active === P1) {
+		let x = piece_hex(GRAND_BATTERY)
+		if (is_map_hex(x) && !hex_has_any_piece(x, friendly_corps()))
+			recall_detachment(GRAND_BATTERY)
+	}
 }
 
 function recall_detachment(p) {
