@@ -849,9 +849,6 @@ states.place_detachment_where = {
 
 		search_detachment(game.who, game.target)
 
-		view.move_from = move_from
-		view.move_from_road = move_from_road
-
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
@@ -1406,9 +1403,6 @@ function can_trace_detachment(here, next) {
 function search_detachment(who, hq) {
 	move_seen.fill(0)
 
-	move_from.length = 0
-	move_from_road.length = 0
-
 	search_detachment_normal(piece_hex(hq), piece_command_range(hq))
 
 	if (!piece_mode(hq))
@@ -1432,7 +1426,6 @@ function search_detachment_normal(start, ma) {
 		for_each_adjacent(here, next => {
 			if (!move_cost[next-1000]) {
 				if (can_trace_detachment(here, next)) {
-					map_set(move_from, next, here)
 					move_cost[next-1000] = 1
 					move_seen[next-1000] = 1
 					if (mp > 1)
@@ -1477,7 +1470,6 @@ function search_detachment_road_segment(queue, here, road, cur, dir) {
 
 		let seen_mp = move_cost[next-1000]
 		if (seen_mp === 255 || next_mp > seen_mp) {
-			map_set(move_from_road, next, here)
 			move_seen[next-1000] = 1
 			move_cost[next-1000] = next_mp
 			qq = (next_mp > 0)
