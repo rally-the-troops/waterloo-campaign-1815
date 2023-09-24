@@ -6,9 +6,6 @@
 // TODO: prompts - Done when no more to do
 
 // TODO: pause after last battle before next turn (do not auto-pass move and attack?)
-
-// TODO: disable pass with moves returning if have units off map that can enter
-
 // TODO: confirm attack step!
 // TODO: roll attack step!
 
@@ -1266,8 +1263,7 @@ states.movement = {
 					if (piece_hex(p) === REINFORCEMENTS) {
 						has_reinf = true
 						if (can_piece_enter(p)) {
-							if (game.remain > 0)
-								may_pass = 0
+							may_pass = 0
 							gen_action_piece(p)
 							break
 						}
