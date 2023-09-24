@@ -1944,6 +1944,8 @@ states.defend_support = {
 function log_drm(n, reason) {
 	if (n > 0)
 		log(`>+${n} ${reason}`)
+	else if (n < 0)
+		log(`>${n} ${reason}`)
 	return n
 }
 
