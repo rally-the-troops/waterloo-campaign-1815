@@ -2491,6 +2491,7 @@ function gen_action_stop_hex(hex) {
 }
 
 exports.view = function (state, player) {
+	zoc_valid = false
 	game = state
 
 	view = {
@@ -2547,6 +2548,7 @@ exports.action = function (state, player, action, arg) {
 }
 
 exports.resign = function (state, player) {
+	zoc_valid = false
 	game = state
 	if (game.state !== 'game_over') {
 		if (player === P1)
