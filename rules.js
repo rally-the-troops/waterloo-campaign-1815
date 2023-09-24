@@ -5,11 +5,12 @@
 // TODO: inactive prompts
 // TODO: prompts - Done when no more to do
 
-// TODO: forbidden - enemy or enemy zoc on entry or adjacent hex special case retreat/recall
-
 // TODO: pause after last battle before next turn (do not auto-pass move and attack?)
-// TODO: confirm attack step?
-// TODO: roll attack step?
+
+// TODO: disable pass with moves returning if have units off map that can enter
+
+// TODO: confirm attack step!
+// TODO: roll attack step!
 
 const P1 = "French"
 const P2 = "Coalition"
@@ -25,6 +26,9 @@ exports.scenarios = [ "June 16", "June 15" ]
 const data = require("./data")
 
 const last_hex = 1000 + (data.map.rows - 1) * 100 + (data.map.cols - 1)
+
+const p1_forbidden = data.map.forbidden[0]
+const p2_forbidden = data.map.forbidden[1]
 
 var move_seen = new Array(last_hex - 999).fill(0)
 var move_cost = new Array(last_hex - 999).fill(0)
@@ -285,6 +289,12 @@ function piece_is_in_zoc_of_hex(p, x) {
 	if (is_map_hex(y) && calc_distance(x, y) === 1)
 		return !is_river(x, y)
 	return false
+}
+
+function is_forbidden_hex(x) {
+	if (game.active === P1)
+		return set_has(p1_forbidden, x)
+	return set_has(p2_forbidden, x)
 }
 
 function is_river(a, b) {
@@ -603,9 +613,9 @@ function can_return_blown_unit(p) {
 	for (let hq of friendly_hqs()) {
 		if (pieces_are_associated(p, hq)) {
 			for_each_adjacent(piece_hex(hq), x => {
-				// TODO: forbidden
 				if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
-					result = true
+					if (!is_forbidden_hex(x))
+						result = true
 			})
 		}
 	}
@@ -696,9 +706,9 @@ states.return_blown_where = {
 		for (let hq of friendly_hqs()) {
 			if (pieces_are_associated(game.who, hq)) {
 				for_each_adjacent(piece_hex(hq), x => {
-					// TODO: forbidden
 					if (is_empty_hex(x) && !is_enemy_zoc_or_zoi(x))
-						gen_action_hex(x)
+						if (!is_forbidden_hex(x))
+							gen_action_hex(x)
 				})
 			}
 		}
@@ -709,6 +719,7 @@ states.return_blown_where = {
 	},
 	hex(x) {
 		log("P" + game.who + "\nto " + x)
+		// TODO: forbidden (retreat then resume return_blown_who)
 		set_piece_hex(game.who, x)
 		game.who = -1
 		game.state = "return_blown_who"
@@ -777,12 +788,12 @@ function end_detachment_placement_step() {
 
 function can_place_detachment_at(x) {
 	// NOTE: must have run search_detachment before calling!
-	// TODO: forbidden
 	return (
 		move_seen[x-1000] &&
 		!is_friendly_zoc_or_zoi(x) &&
 		!hex_has_any_piece(x, friendly_detachments()) &&
-		!hex_has_any_piece(x, enemy_detachments())
+		!hex_has_any_piece(x, enemy_detachments()) &&
+		!is_forbidden_hex(x)
 	)
 }
 
@@ -798,7 +809,6 @@ function can_place_detachment_anywhere(p, hq) {
 function can_place_detachment(p, hq) {
 	// NOTE: must have run search_detachment before calling!
 	let x = piece_hex(p)
-	// TODO: forbidden
 	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
 		if (pieces_are_associated(p, hq)) {
 			if (p === GRAND_BATTERY || p === OLD_GUARD) {
@@ -1095,7 +1105,6 @@ states.withdrawal_to = {
 		next_withdrawal()
 	},
 	hex(x) {
-		// TODO: forbidden (withdraw again)
 		let from = piece_hex(game.who)
 		log("P" + game.who + "\tfrom " + from + "\nto " + x)
 		set_piece_hex(game.who, x)
@@ -1295,8 +1304,7 @@ states.movement_to = {
 		for (let row = 0; row < data.map.rows; ++row) {
 			for (let col = 0; col < data.map.cols; ++col) {
 				let x = 1000 + row * 100 + col
-				// TODO: forbidden?
-				if (x !== here && move_seen[x-1000]) {
+				if (x !== here && move_seen[x-1000] && !is_forbidden_hex(x)) {
 					if (move_flip[x-1000])
 						gen_action_stop_hex(x)
 					else
@@ -1708,7 +1716,8 @@ function search_retreat(result, here, from_list, n) {
 		if (n > 1)
 			search_retreat(result, next, from_list, n - 1)
 		else
-			set_add(result, next)
+			if (!is_forbidden_hex(next))
+				set_add(result, next)
 	})
 }
 
@@ -2215,10 +2224,12 @@ function goto_pursuit() {
 	update_zoc()
 
 	if (!hex_has_any_piece(game.attack, enemy_units()) && piece_is_not_in_enemy_zoc(game.who)) {
-		set_piece_hex(game.who, game.attack)
-		// TODO: forbidden (retreat then next_attack)
-		log("P" + game.who + " pursued.")
-		recall_grand_battery_alone()
+		if (!is_forbidden_hex(game.attack)) {
+			// TODO: forbidden (retreat then next_attack)
+			set_piece_hex(game.who, game.attack)
+			log("P" + game.who + " pursued.")
+			recall_grand_battery_alone()
+		}
 	}
 
 	next_attack()
