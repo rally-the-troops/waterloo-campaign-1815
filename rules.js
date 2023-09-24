@@ -5,7 +5,6 @@
 // TODO: inactive prompts
 // TODO: prompts - Done when no more to do
 
-// TODO: rain effect on movement
 // TODO: forbidden - enemy or enemy zoc on entry or adjacent hex special case retreat/recall
 
 // TODO: june 15 special rules
@@ -436,6 +435,34 @@ function update_zoc() {
 
 function goto_command_phase() {
 	log(".h1 Turn " + game.turn)
+
+	if (game.rain > 0)
+		game.rain--
+
+	if (game.turn === 1) {
+		log("Surprise!")
+		log("Road Congestion.")
+	}
+
+	if (game.turn === 2) {
+		log("Delayed Reaction.")
+		log("Concentrating the Army.")
+		log("Road Congestion.")
+	}
+
+	if (game.turn === 5 || game.turn === 6) {
+		let die = roll_die()
+		if (die <= 4) {
+			log("The Deluge:\nD" + die + " \u2013 Rain.")
+			game.rain = 2
+		} else {
+			log("The Deluge:\nD" + die + " \u2013 No effect.")
+		}
+	}
+
+	if (game.rain > 0)
+		log("Artillery Ricochet Ineffective.")
+
 	log(".h2 Command")
 	bring_on_reinforcements()
 	goto_hq_placement_step()
@@ -1262,6 +1289,12 @@ function must_stop_zoc_zoi(here, next, is_cav) {
 	return false
 }
 
+function must_stop_deluge(here, next) {
+	if (game.rain === 2 && !is_road_hexside(here, next))
+		return true
+	return false
+}
+
 function must_stop_stream(here, next) {
 	if (is_stream_hex(next) && !is_road_hexside(here, next))
 		return true
@@ -1426,7 +1459,9 @@ function search_move_normal(start, ma, hq_hex, hq_range, is_cav) {
 				return
 
 			let next_mp = mp - 1
-			if (must_stop_stream(here, next))
+			if (must_stop_deluge(here, next))
+				next_mp = -1
+			else if (must_stop_stream(here, next))
 				next_mp = -1
 			else if (must_flip_zoc(here, next, is_cav))
 				next_mp = -1
@@ -1784,7 +1819,7 @@ function goto_resolve_attack() {
 
 	log("Attacker P" + a_unit)
 
-	if (game.rain)
+	if (game.rain > 0)
 		a_drm += log_drm(-1, "Artillery Ricochet Ineffective")
 
 	// Unless Cav charging into town

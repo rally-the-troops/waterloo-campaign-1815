@@ -404,7 +404,7 @@ function on_update() {
 	}
 
 	ui.turn.style.left = (40 + TURN_X + (view.turn-1) * TURN_DX) + "px"
-	ui.turn.classList.toggle("flip", view.rain > 0)
+	ui.turn.classList.toggle("flip", view.rain === 2)
 
 	ui.remain.style.left = (20 + 109 + (view.remain % 10) * 47.5 | 0) + "px"
 	ui.remain.classList.toggle("flip", view.remain > 9)
