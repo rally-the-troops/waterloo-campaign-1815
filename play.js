@@ -66,8 +66,8 @@ function map_get(map, key, missing) {
 const FRENCH = "French"
 const COALITION = "Coalition"
 
-const TURN_X = 20 - 70 + 35 + 8
-const TURN_Y = 1745
+const TURN_X = 20 - 70 + 35 + 8 + 20
+const TURN_Y = 1745 + 20
 const TURN_DX = 70
 
 const REINF_OFFSET = {
@@ -358,8 +358,8 @@ function on_update() {
 			// OFF MAP DETACHMENTS / LEADERS / REINFORCEMENTS
 			ui.pieces[id].classList.remove("hide")
 			ui.pieces[id].classList.toggle("flip", (view.pieces[id] & 1) === 1)
-			let x = 600 + 40 + ui.stack[hex] * 60
-			let y = 1650 + 40 + 60 * (hex-AVAILABLE_P1)
+			let x = 600 + 40 + ui.stack[hex] * 60 + 40
+			let y = 1650 + 40 + 60 * (hex-AVAILABLE_P1) + 20
 			ui.stack[hex] += 1
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
@@ -406,7 +406,7 @@ function on_update() {
 	ui.turn.style.left = (40 + TURN_X + (view.turn-1) * TURN_DX) + "px"
 	ui.turn.classList.toggle("flip", view.rain > 0)
 
-	ui.remain.style.left = (109 + (view.remain % 10) * 47.5 | 0) + "px"
+	ui.remain.style.left = (20 + 109 + (view.remain % 10) * 47.5 | 0) + "px"
 	ui.remain.classList.toggle("flip", view.remain > 9)
 
 	action_button("blow", "Blow")

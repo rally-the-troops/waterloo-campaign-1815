@@ -5,9 +5,14 @@
 // TODO: inactive prompts
 // TODO: prompts - Done when no more to do
 
-// TODO: recall grand battery if alone
 // TODO: rain effect on movement
-// TODO: enemy or enemy zoc on entry or adjacent hex special case retreat/recall
+// TODO: forbidden - enemy or enemy zoc on entry or adjacent hex special case retreat/recall
+
+// TODO: june 15 special rules
+
+// TODO: pause after last battle before next turn
+// TODO: confirm attack step?
+// TODO: roll attack step?
 
 const P1 = "French"
 const P2 = "Coalition"
@@ -179,6 +184,7 @@ const p1_corps = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.ty
 const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav"))
 const p1_units = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
 const p2_units = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav" || p.type === "det"))
+const all_units = make_piece_list(p => (p.type === "inf" || p.type === "cav" || p.type === "det"))
 
 function friendly_hqs() { return (game.active === P1) ? p1_hqs : p2_hqs }
 function enemy_hqs() { return (game.active !== P1) ? p1_hqs : p2_hqs }
@@ -360,7 +366,7 @@ function recall_grand_battery_alone() {
 }
 
 function recall_detachment(p) {
-	log("P" + p + "\nfrom " + piece_hex(p))
+	log("P" + p + " recalled from " + piece_hex(p) + ".")
 	if (set_has(p1_det, p))
 		set_piece_hex(p, AVAILABLE_P1)
 	else
@@ -490,6 +496,7 @@ states.place_hq = {
 		}
 	},
 	end_step() {
+		clear_undo()
 		end_hq_placement_step()
 	},
 }
@@ -582,7 +589,6 @@ states.eliminate_blown = {
 				gen_action_piece(p)
 	},
 	piece(p) {
-		push_undo()
 		eliminate_unit(p)
 		resume_return_blown_1()
 	},
@@ -612,8 +618,7 @@ states.return_blown_who = {
 	piece(p) {
 		push_undo()
 		update_zoc()
-		if (game.count > 0 && can_return_blown_unit(p)) {
-			--game.count
+		if (can_return_blown_unit(p)) {
 			game.who = p
 			game.state = "return_blown_where"
 		} else {
@@ -621,6 +626,7 @@ states.return_blown_who = {
 		}
 	},
 	end_step() {
+		clear_undo()
 		end_return_blown()
 	},
 }
@@ -646,7 +652,7 @@ states.return_blown_where = {
 		log("P" + game.who + "\nto " + x)
 		set_piece_hex(game.who, x)
 		game.who = -1
-		game.state = "return_blown"
+		game.state = "return_blown_who"
 	},
 }
 
@@ -719,6 +725,7 @@ states.place_detachment_hq = {
 		game.state = "place_detachment_who"
 	},
 	end_step() {
+		clear_undo()
 		end_detachment_placement_step()
 	},
 }
@@ -839,6 +846,7 @@ states.detachment_recall_step = {
 		recall_detachment(p)
 	},
 	end_step() {
+		clear_undo()
 		end_detachment_recall_step()
 	},
 }
@@ -918,6 +926,7 @@ function goto_withdrawal() {
 }
 
 function next_withdrawal() {
+	clear_undo()
 	game.state = "withdrawal"
 
 	if (game.remain === 0) {
@@ -939,9 +948,12 @@ function pass_withdrawal() {
 		end_withdrawal()
 	} else {
 		set_next_player()
-		game.remain = 3
-		if (!can_withdraw_any())
-			pass_withdrawal()
+		if (can_withdraw_any()) {
+			game.remain = 3
+		} else {
+			log(game.active + " passed.")
+			end_withdrawal()
+		}
 	}
 }
 
@@ -1016,7 +1028,7 @@ function bring_on_reinforcements() {
 			for (let p of info.list)
 				if (piece_hex(p) !== SWAPPED)
 					set_piece_hex(p, REINFORCEMENTS)
-	for (let p of friendly_units())
+	for (let p of all_units)
 		if (piece_hex(p) === BLOWN + game.turn)
 			set_piece_hex(p, BLOWN)
 }
@@ -1045,6 +1057,7 @@ function goto_movement_phase() {
 }
 
 function next_movement() {
+	clear_undo()
 	game.state = "movement"
 	game.who = -1
 
@@ -1085,7 +1098,8 @@ function pass_movement() {
 
 			game.remain += n
 		} else {
-			pass_movement()
+			log(game.active + " passed.")
+			end_movement()
 		}
 	}
 }
@@ -1172,7 +1186,6 @@ states.movement_to = {
 		set_piece_hex(game.who, x)
 
 		log("P" + game.who + "\nfrom " + from + "\nto " + x)
-		log("")
 
 		// must flip (stream without road, or enter zoc)
 		if (move_flip[x-1000])
@@ -1185,6 +1198,8 @@ states.movement_to = {
 
 		game.who = -1
 		recall_grand_battery_alone()
+
+		log("")
 		next_movement()
 	},
 }
@@ -1393,6 +1408,8 @@ function search_move_normal(start, ma, hq_hex, hq_range, is_cav) {
 		let here = queue.shift()
 		let mp = move_cost[here-1000]
 
+		// console.log("HERE", here, mp)
+
 		for_each_adjacent(here, next => {
 			if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
 				return
@@ -1405,6 +1422,8 @@ function search_move_normal(start, ma, hq_hex, hq_range, is_cav) {
 			else if (must_stop_zoc_zoi(here, next, is_cav))
 				next_mp = 0
 			
+			// console.log("  INTO", next, mp)
+
 			let seen_mp = move_cost[next-1000]
 			if (seen_mp === 255 || next_mp > seen_mp) {
 				map_set(move_from, next, here)
@@ -1574,7 +1593,8 @@ function pass_attack() {
 			game.remain = roll_die()
 			log("Rolled D" + game.remain + ".")
 		} else {
-			pass_attack()
+			log(game.active + " passed.")
+			end_attack()
 		}
 	}
 }
@@ -1650,10 +1670,14 @@ states.attack_who = {
 		game.target = p
 		game.attack = piece_hex(game.target)
 		begin_attack()
+
+		// TODO: confirm attack step?
+		// TODO: roll attack step?
 	},
 }
 
 function begin_attack() {
+	clear_undo()
 	game.count = 0
 	for (let p of friendly_infantry_corps())
 		if (can_attack_infantry_support(p))
@@ -1700,6 +1724,7 @@ states.attack_support = {
 		game.count |= (1 << p)
 	},
 	next() {
+		clear_undo()
 		goto_defend_support()
 	},
 }
@@ -1718,6 +1743,7 @@ states.defend_support = {
 		game.count |= (1 << p)
 	},
 	next() {
+		clear_undo()
 		goto_resolve_attack()
 	},
 }

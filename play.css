@@ -26,18 +26,19 @@ body.Coalition header.your_turn { background-color: white; }
 
 main {
 	background-color: dimgray;
+	background-color:  hsl(39, 10%, 40%);
 }
 
 #mapwrap {
 	margin: 0 auto;
 	width: 2550px;
-	height: 1900px;
+	height: 1940px;
 }
 
 #map {
 	position: absolute;
 	width: 2550px;
-	height: 1900px;
+	height: 1940px;
 }
 
 #board, #tracks, #hexes, #pieces {
@@ -56,8 +57,8 @@ main {
 }
 
 #tracks {
-	top: 1650px;
-	left: 0px;
+	top: 1670px;
+	left: 20px;
 	width: 600px;
 	height: 250px;
 	background-color: #d0c5b1;
