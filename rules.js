@@ -1980,7 +1980,7 @@ function goto_resolve_attack() {
 	if (town)
 		d_drm += log_drm(1, "Town")
 
-	if (is_bridge(a_hex, d_hex))
+	else if (is_bridge(a_hex, d_hex))
 		d_drm += log_drm(1, "Bridge")
 
 	// ERRATA: No stars for Cav defending in Town
