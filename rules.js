@@ -2,12 +2,8 @@
 
 // TODO - auto-update ZOC
 
+// TODO: active prompts
 // TODO: inactive prompts
-// TODO: prompts - Done when no more to do
-
-// TODO: pause after last battle before next turn (do not auto-pass move and attack?)
-// TODO: confirm attack step!
-// TODO: roll attack step!
 
 const P1 = "French"
 const P2 = "Coalition"
@@ -821,10 +817,17 @@ function can_place_detachment(p, hq) {
 
 states.place_detachment_hq = {
 	prompt() {
-		prompt("Place Detachment: Select HQ.")
-		for (let p of friendly_hqs())
-			if (game.count & (1 << p))
+		let done = true
+		for (let p of friendly_hqs()) {
+			if (game.count & (1 << p)) {
+				done = false
 				gen_action_piece(p)
+			}
+		}
+		if (done)
+			prompt("Place Detachment: Done.")
+		else
+			prompt("Place Detachment: Select HQ.")
 		view.actions.end_step = 1
 	},
 	piece(p) {
@@ -1800,7 +1803,8 @@ function pass_attack() {
 }
 
 function end_attack() {
-	goto_end_phase()
+	game.active = P1
+	game.state = "end_phase"
 }
 
 states.attack = {
@@ -1873,14 +1877,10 @@ states.attack_who = {
 		game.target = p
 		game.attack = piece_hex(game.target)
 		begin_attack()
-
-		// TODO: confirm attack step?
-		// TODO: roll attack step?
 	},
 }
 
 function begin_attack() {
-	clear_undo()
 	game.count = 0
 	for (let p of friendly_infantry_corps())
 		if (can_attack_infantry_support(p))
@@ -1896,11 +1896,6 @@ function begin_attack() {
 
 function goto_attack_support() {
 	game.state = "attack_support"
-	for (let p of friendly_cavalry_corps())
-		if (!(game.count & (1 << p)))
-			if (can_attack_cavalry_support(p))
-				return
-	goto_defend_support()
 }
 
 function goto_defend_support() {
@@ -1915,18 +1910,40 @@ function goto_defend_support() {
 
 states.attack_support = {
 	prompt() {
-		prompt("Attack: Commit supporting cavalry.")
-		for (let p of friendly_cavalry_corps())
-			if (!(game.count & (1 << p)))
-				if (can_attack_cavalry_support(p))
+		if (data.map.names[game.attack])
+			prompt("Attack " + piece_name(game.target) +
+				" at " + data.map.names[game.attack] +
+				" with " + piece_name(game.who) +
+				".")
+		else
+			prompt(piece_name(game.who) +
+				" attacks " + piece_name(game.target) +
+				" at " + data.map.names[game.attack] +
+				". Commit defending cavalry?")
+			prompt("Attack " + piece_name(game.target) + " with " + piece_name(game.who) + ".")
+
+		// TODO: show DRMs?
+
+		let can_support = false
+		for (let p of friendly_cavalry_corps()) {
+			if (!(game.count & (1 << p))) {
+				if (can_attack_cavalry_support(p)) {
+					can_support = true
 					gen_action_piece(p)
-		view.actions.next = 1
+				}
+			}
+		}
+
+		if (can_support)
+			view.prompt += " Commit supporting cavalry?"
+
+		view.actions.roll = 1
 	},
 	piece(p) {
 		push_undo()
 		game.count |= (1 << p)
 	},
-	next() {
+	roll() {
 		clear_undo()
 		goto_defend_support()
 	},
@@ -1934,18 +1951,27 @@ states.attack_support = {
 
 states.defend_support = {
 	prompt() {
-		prompt("Defend: Commit supporting cavalry.")
+		if (data.map.names[game.attack])
+			prompt(piece_name(game.who) +
+				" attacks " + piece_name(game.target) +
+				" at " + data.map.names[game.attack] +
+				". Commit defending cavalry?")
+		else
+			prompt(piece_name(game.who) +
+				" attacks " + piece_name(game.target) +
+				". Commit defending cavalry?")
+
 		for (let p of friendly_cavalry_corps())
 			if (!(game.count & (1 << p)))
 				if (can_defend_cavalry_support(p))
 					gen_action_piece(p)
-		view.actions.next = 1
+		view.actions.roll = 1
 	},
 	piece(p) {
 		push_undo()
 		game.count |= (1 << p)
 	},
-	next() {
+	roll() {
 		clear_undo()
 		goto_resolve_attack()
 	},
@@ -2267,6 +2293,16 @@ function goto_pursuit() {
 }
 
 // === END PHASE ===
+
+states.end_phase = {
+	prompt() {
+		prompt("End Phase.")
+		view.actions.end_turn = 1
+	},
+	end_turn() {
+		goto_end_phase()
+	}
+}
 
 function goto_end_phase() {
 	game.remain = 0

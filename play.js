@@ -447,6 +447,7 @@ function on_update() {
 	action_button("roll", "Roll")
 	action_button("next", "Next")
 	action_button("end_step", "End step")
+	action_button("end_turn", "End turn")
 	action_button("pass", "Pass")
 	action_button("undo", "Undo")
 }

@@ -166,7 +166,7 @@ main {
 	border: 4px solid #fff6;
 	background-color: #fff2;
 	box-shadow: 0 0 3px #0008;
-	z-index: 150;
+	z-index: 100;
 }
 
 .hex.action.stop {
@@ -175,12 +175,10 @@ main {
 
 .hex.move {
 	background-color: #0a04;
-	z-index: 100;
 }
 
 .hex.road {
 	background-color: #8804;
-	z-index: 100;
 }
 
 .hex.move.stop, .hex.road.stop {
@@ -241,7 +239,7 @@ main {
 }
 
 .large.selected, .small.selected {
-	box-shadow: 0 0 0 1px #444, 0 0 0 4px yellow;
+	box-shadow: 0 0 0 1px #444, 0 0 0 3px mediumblue;
 }
 
 .large.target, .small.target {
@@ -290,6 +288,8 @@ main {
 div.french.tip, div.anglo.tip, div.prussian.tip {
 	box-shadow: 0 0 0 4px #f008;
 	z-index: 200;
+=======
+>>>>>>> da5fc7d (Pause before rolling for attack. Pause at end of turn.)
 }
 
 .marker { border-color: hsl(199,65%,85%) hsl(199,55%,50%) hsl(199,55%,50%) hsl(199,65%,85%) }
