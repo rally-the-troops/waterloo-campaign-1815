@@ -536,7 +536,7 @@ function end_hq_placement_step() {
 
 states.place_hq = {
 	prompt() {
-		prompt("HQ Placement Step.")
+		prompt("Place HQs and choose HQ modes.")
 		let done = true
 		for (let p of friendly_hqs()) {
 			gen_action_piece(p)
@@ -563,12 +563,10 @@ states.place_hq = {
 
 states.place_hq_where = {
 	prompt() {
-		prompt("HQ Placement Step.")
-		gen_action_piece(game.who)
-		view.actions.normal = piece_mode(game.who) ? 1 : 0
-		view.actions.battle = piece_mode(game.who) ? 0 : 1
-
 		update_zoc()
+		prompt("Place " + piece_name(game.who) + ".")
+
+		gen_action_piece(game.who)
 
 		// within 3 of any unit
 		for (let p of friendly_units()) {
@@ -644,7 +642,7 @@ function resume_return_blown_1() {
 
 states.eliminate_blown = {
 	prompt() {
-		prompt("Blown Unit Return Step: Eliminate all but two of opponent's blown corps.")
+		prompt("Eliminate all but two of opponent's blown corps.")
 		for (let p of enemy_corps())
 			if (piece_hex(p) === BLOWN)
 				gen_action_piece(p)
@@ -665,7 +663,7 @@ function resume_return_blown_2() {
 
 states.return_blown_who = {
 	prompt() {
-		prompt("Blown Unit Return Step.")
+		prompt("Return a blown corps.")
 		let done = true
 		for (let p of friendly_corps()) {
 			if (piece_hex(p) === BLOWN) {
@@ -694,7 +692,7 @@ states.return_blown_who = {
 
 states.return_blown_where = {
 	prompt() {
-		prompt("Blown Unit Return Step.")
+		prompt("Return " + piece_name(game.who) + ".")
 		update_zoc()
 		for (let hq of friendly_hqs()) {
 			if (pieces_are_associated(game.who, hq)) {
@@ -827,7 +825,7 @@ states.place_detachment_hq = {
 		if (done)
 			prompt("Place Detachment: Done.")
 		else
-			prompt("Place Detachment: Select HQ.")
+			prompt("Choose an HQ to place a detachment.")
 		view.actions.end_step = 1
 	},
 	piece(p) {
@@ -844,7 +842,7 @@ states.place_detachment_hq = {
 
 states.place_detachment_who = {
 	prompt() {
-		prompt("Place Detachment: Select an available detachment.")
+		prompt("Place an available detachment.")
 
 		gen_action_piece(game.target)
 
@@ -927,7 +925,7 @@ function end_detachment_recall_step() {
 
 states.detachment_recall_step = {
 	prompt() {
-		prompt("Detachment Recall Step.")
+		prompt("Recall detachments?")
 
 		for (let p of friendly_detachments())
 			if (piece_is_on_map(p))
@@ -1812,7 +1810,7 @@ states.attack = {
 		if (game.remain > 0)
 			prompt("Attack: " + game.remain + " attacks remain.")
 		else
-			prompt("Attack!")
+			prompt("Attack.")
 		update_zoc()
 		for (let p of friendly_corps())
 			if (piece_is_in_enemy_zoc(p))
@@ -1849,7 +1847,7 @@ function can_attack_infantry_support(p) {
 
 states.attack_who = {
 	prompt() {
-		prompt("Attack!")
+		prompt("Attack with " + piece_name(game.who) + ".")
 		let here = piece_hex(game.who)
 		for (let p of enemy_units()) {
 			if (piece_is_in_zoc_of_hex(p, here)) {
@@ -2115,11 +2113,12 @@ function goto_resolve_attack() {
 
 function goto_stalemate() {
 	log("Stalemate.")
+	// TODO: pause ?
 	goto_pursuit()
 }
 
 function goto_blown_attacker() {
-	log("Blown attacker.")
+	log("Attacker blown.")
 	if (piece_is_detachment(game.target))
 		game.state = "retreat_attacker"
 	else
@@ -2127,7 +2126,7 @@ function goto_blown_attacker() {
 }
 
 function goto_eliminated_attacker() {
-	log("Eliminated attacker.")
+	log("Attacker eliminated.")
 	if (piece_is_detachment(game.target))
 		game.state = "retreat_attacker"
 	else
@@ -2135,7 +2134,7 @@ function goto_eliminated_attacker() {
 }
 
 function goto_blown_defender() {
-	log("Blown defender.")
+	log("Defender blown.")
 	set_next_player()
 	if (piece_is_detachment(game.target))
 		game.state = "eliminated_defender"
@@ -2144,18 +2143,18 @@ function goto_blown_defender() {
 }
 
 function goto_eliminated_defender() {
-	log("Eliminated defender.")
+	log("Defender eliminated.")
 	set_next_player()
 	game.state = "eliminated_defender"
 }
 
 function goto_retreat_attacker() {
-	log("Retreat attacker.")
+	log("Attacker retreat")
 	game.state = "retreat_attacker"
 }
 
 function goto_retreat_defender() {
-	log("Retreat defender.")
+	log("Defender retreat.")
 	set_next_player()
 	if (piece_is_detachment(game.target))
 		game.state = "recall_defender"
@@ -2165,7 +2164,7 @@ function goto_retreat_defender() {
 
 states.blown_attacker = {
 	prompt() {
-		prompt("Attack: Blown attacker.")
+		prompt("Blow attacker.")
 		gen_action_piece(game.who)
 	},
 	piece(p) {
@@ -2176,7 +2175,7 @@ states.blown_attacker = {
 
 states.eliminated_attacker = {
 	prompt() {
-		prompt("Attack: Eliminated attacker.")
+		prompt("Eliminate attacker.")
 		gen_action_piece(game.who)
 	},
 	piece(p) {
@@ -2187,7 +2186,7 @@ states.eliminated_attacker = {
 
 states.blown_defender = {
 	prompt() {
-		prompt("Attack: Blown defender.")
+		prompt("Blow defender.")
 		gen_action_piece(game.target)
 	},
 	piece(p) {
@@ -2199,7 +2198,7 @@ states.blown_defender = {
 
 states.eliminated_defender = {
 	prompt() {
-		prompt("Attack: Eliminated defender.")
+		prompt("Eliminate defender.")
 		gen_action_piece(game.target)
 	},
 	piece(p) {
@@ -2211,7 +2210,7 @@ states.eliminated_defender = {
 
 states.retreat_attacker = {
 	prompt() {
-		prompt("Attack: Retreat attacker.")
+		prompt("Retreat attacker.")
 		let result = []
 		move_from.length = 0
 		update_zoc()
@@ -2238,7 +2237,7 @@ states.retreat_attacker = {
 
 states.recall_defender = {
 	prompt() {
-		prompt("Attack: Retreat defender.")
+		prompt("Recall defender.")
 		gen_action_piece(game.target)
 	},
 	piece(p) {
@@ -2250,7 +2249,7 @@ states.recall_defender = {
 
 states.retreat_defender = {
 	prompt() {
-		prompt("Attack: Retreat defender.")
+		prompt("Retreat defender.")
 		let result = []
 		move_from.length = 0
 		update_zoc()
