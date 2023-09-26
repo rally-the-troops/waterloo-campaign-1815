@@ -30,8 +30,6 @@ var move_cost = new Array(last_hex - 999).fill(0)
 var move_flip = new Array(last_hex - 999).fill(0)
 var move_from = []
 var move_from_road = []
-var zoc_valid = false
-var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
 const ELIMINATED = 0
 const REINFORCEMENTS = 100
@@ -392,15 +390,18 @@ function prompt(str) {
 
 // ANY_ZOC=1, CAV_ZOC=2, ANY_ZOI=4, CAV_ZOI=8
 
-function is_p1_zoc(x) { return zoc_cache[x-1000] & (1|2) }
-function is_p1_cav_zoc(x) { return zoc_cache[x-1000] & (2) }
-function is_p1_zoc_or_zoi(x) { return zoc_cache[x-1000] & (1|2|4) }
-function is_p1_zoc_or_cav_zoi(x) { return zoc_cache[x-1000] & (1|2|8) }
+var zoc_valid = false
+var zoc_cache = new Array(data.map.rows * 100).fill(0)
 
-function is_p2_zoc(x) { return zoc_cache[x-1000] & (16|32) }
-function is_p2_cav_zoc(x) { return zoc_cache[x-1000] & (32) }
-function is_p2_zoc_or_zoi(x) { return zoc_cache[x-1000] & (16|32|64) }
-function is_p2_zoc_or_cav_zoi(x) { return zoc_cache[x-1000] & (16|32|128) }
+function is_p1_zoc(x) { update_zoc(); return zoc_cache[x-1000] & (1|2) }
+function is_p1_cav_zoc(x) { update_zoc(); return zoc_cache[x-1000] & (2) }
+function is_p1_zoc_or_zoi(x) { update_zoc(); return zoc_cache[x-1000] & (1|2|4) }
+function is_p1_zoc_or_cav_zoi(x) { update_zoc(); return zoc_cache[x-1000] & (1|2|8) }
+
+function is_p2_zoc(x) { update_zoc(); return zoc_cache[x-1000] & (16|32) }
+function is_p2_cav_zoc(x) { update_zoc(); return zoc_cache[x-1000] & (32) }
+function is_p2_zoc_or_zoi(x) { update_zoc(); return zoc_cache[x-1000] & (16|32|64) }
+function is_p2_zoc_or_cav_zoi(x) { update_zoc(); return zoc_cache[x-1000] & (16|32|128) }
 
 function is_friendly_zoc(x) { return game.active === P1 ? is_p1_zoc(x) : is_p2_zoc(x) }
 function is_friendly_zoc_or_zoi(x) { return game.active === P1 ? is_p1_zoc_or_zoi(x) : is_p2_zoc_or_zoi(x) }
@@ -567,7 +568,6 @@ states.place_hq = {
 states.place_hq_where = {
 	inactive: "place HQs",
 	prompt() {
-		update_zoc()
 		prompt("Place " + piece_name(game.who) + ".")
 
 		gen_action_piece(game.who)
@@ -682,7 +682,6 @@ states.return_blown_who = {
 	},
 	piece(p) {
 		push_undo()
-		update_zoc()
 		if (can_return_blown_unit(p)) {
 			game.who = p
 			game.state = "return_blown_where"
@@ -700,7 +699,6 @@ states.return_blown_where = {
 	inactive: "return blown corps",
 	prompt() {
 		prompt("Return " + piece_name(game.who) + ".")
-		update_zoc()
 		for (let hq of friendly_hqs()) {
 			if (pieces_are_associated(game.who, hq)) {
 				for_each_adjacent(piece_hex(hq), x => {
@@ -734,8 +732,6 @@ function end_return_blown() {
 // === C: CAVALRY CORPS RECOVERY STEP ===
 
 function goto_cavalry_corps_recovery_step() {
-	update_zoc()
-
 	game.active = P1
 	for (let p of friendly_cavalry_corps())
 		if (piece_mode(p) && piece_is_not_in_enemy_zoc_or_zoi(p))
@@ -762,7 +758,6 @@ function begin_detachment_placement_step() {
 	for (let p of friendly_hqs())
 		game.count |= (1 << p)
 
-	update_zoc()
 	for (let hq of friendly_hqs()) {
 		for (let p of friendly_detachments()) {
 			search_detachment(p, hq)
@@ -856,7 +851,6 @@ states.place_detachment_who = {
 
 		gen_action_piece(game.target)
 
-		update_zoc()
 		for (let p of friendly_detachments()) {
 			search_detachment(p, game.target)
 			if (can_place_detachment(p, game.target))
@@ -876,8 +870,6 @@ states.place_detachment_who = {
 states.place_detachment_where = {
 	inactive: "place detachments",
 	prompt() {
-		update_zoc()
-
 		prompt("Place " + piece_name(game.who) + ".")
 		gen_action_piece(game.who)
 
@@ -958,7 +950,6 @@ states.detachment_recall_step = {
 // === ORGANIZATION PHASE ===
 
 function goto_organization_phase() {
-	update_zoc()
 
 	// British Line of Communication Angst
 	let n = 0
@@ -1015,7 +1006,6 @@ function goto_organization_phase() {
 // === H: WITHDRAWAL ===
 
 function can_withdraw_any() {
-	update_zoc()
 	for (let p of friendly_corps())
 		if (piece_is_in_enemy_zoc(p))
 			return true
@@ -1073,7 +1063,6 @@ states.withdrawal = {
 		else
 			prompt("Withdrawal.")
 
-		update_zoc()
 		for (let p of friendly_corps())
 			if (piece_is_in_enemy_zoc(p))
 				gen_action_piece(p)
@@ -1099,7 +1088,6 @@ states.withdrawal_to = {
 	inactive: "withdraw",
 	prompt() {
 		prompt("Withdraw " + piece_name(game.who) + ".")
-		update_zoc()
 
 		let list = search_withdrawal(piece_hex(game.who))
 		if (list.length > 0) {
@@ -1144,7 +1132,6 @@ function bring_on_reinforcements() {
 }
 
 function can_move_any() {
-	update_zoc()
 	for (let info of data.reinforcements)
 		if (info.turn === game.turn && info.side === game.active)
 			for (let p of info.list)
@@ -1195,7 +1182,6 @@ function pass_movement() {
 	if (game.remain > 0) {
 		end_movement()
 	} else {
-		update_zoc()
 		set_next_player()
 
 		if (can_move_any()) {
@@ -1244,8 +1230,6 @@ states.movement = {
 			prompt("Movement: " + game.remain + " moves remain.")
 		else
 			prompt("Movement.")
-
-		update_zoc()
 
 		// June 15: Surprise
 		if (game.turn === 1 && game.active === P2) {
@@ -1325,7 +1309,6 @@ states.movement_to = {
 	prompt() {
 		prompt("Move " + piece_name(game.who) + ".")
 
-		update_zoc()
 		search_move(game.who)
 		view.move_from = move_from
 		view.move_from_road = move_from_road
@@ -1352,7 +1335,6 @@ states.movement_to = {
 		this.hex(x)
 	},
 	hex(x) {
-		update_zoc()
 		search_move(game.who)
 
 		let from = piece_hex(game.who)
@@ -1828,7 +1810,6 @@ states.attack = {
 			prompt("Attack: " + game.remain + " attacks remain.")
 		else
 			prompt("Attack.")
-		update_zoc()
 		for (let p of friendly_corps())
 			if (piece_is_in_enemy_zoc(p))
 				gen_action_piece(p)
@@ -2242,7 +2223,6 @@ states.retreat_attacker = {
 		prompt("Retreat attacker.")
 		let result = []
 		move_from.length = 0
-		update_zoc()
 		search_retreat(result, piece_hex(game.who), [ piece_hex(game.target) ], 3)
 		view.move_from = move_from
 		if (result.length === 0)
@@ -2283,7 +2263,6 @@ states.retreat_defender = {
 		prompt("Retreat defender.")
 		let result = []
 		move_from.length = 0
-		update_zoc()
 		search_retreat(result, piece_hex(game.target), [ piece_hex(game.who) ], 3)
 		view.move_from = move_from
 		if (result.length === 0)
@@ -2308,8 +2287,6 @@ states.retreat_defender = {
 }
 
 function goto_pursuit() {
-	update_zoc()
-
 	if (!hex_has_any_piece(game.attack, enemy_units()) && piece_is_not_in_enemy_zoc(game.who)) {
 		if (!is_forbidden_hex(game.attack)) {
 			// TODO: forbidden (retreat then next_attack)
@@ -2318,7 +2295,6 @@ function goto_pursuit() {
 			recall_grand_battery_alone()
 		}
 	}
-
 	next_attack()
 }
 
@@ -2400,8 +2376,6 @@ function goto_victory_conditions() {
 }
 
 function search_brussels_path() {
-	update_zoc()
-
 	move_seen.fill(0)
 	move_seen[1017-1000] = 1
 	move_seen[1018-1000] = 1
