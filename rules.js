@@ -344,19 +344,23 @@ function set_next_player() {
 }
 
 function blow_unit(p, n) {
-	if (game.turn + n > 8) {
-		log("P" + p + " eliminated.")
-		set_piece_hex(p, ELIMINATED)
-	} else {
-		log("P" + p + " blown.")
-		set_piece_hex(p, BLOWN + game.turn + n)
-		set_piece_mode(p, 0)
+	if (piece_is_on_map(p)) {
+		if (game.turn + n > 8) {
+			log("P" + p + " eliminated.")
+			set_piece_hex(p, ELIMINATED)
+		} else {
+			log("P" + p + " blown.")
+			set_piece_hex(p, BLOWN + game.turn + n)
+			set_piece_mode(p, 0)
+		}
 	}
 }
 
 function eliminate_unit(p) {
-	log("P" + p + " eliminated.")
-	set_piece_hex(p, ELIMINATED)
+	if (piece_is_on_map(p)) {
+		log("P" + p + " eliminated.")
+		set_piece_hex(p, ELIMINATED)
+	}
 }
 
 function eliminate_detachments_stacked_with_corps(c) {
