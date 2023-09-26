@@ -166,10 +166,6 @@ function on_click_action(evt) {
 	}
 }
 
-function toggle_pieces() {
-	document.getElementById("pieces").classList.toggle("hide")
-}
-
 var _move_path = []
 
 function hide_move_path() {

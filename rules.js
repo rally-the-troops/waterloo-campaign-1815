@@ -2,8 +2,10 @@
 
 // TODO - auto-update ZOC
 
-// TODO: active prompts
-// TODO: inactive prompts
+// TODO: tooltips and log coloring?
+// TODO: map names
+// TODO: unit names
+// TODO: fix counters and map graphics
 
 const P1 = "French"
 const P2 = "Coalition"
@@ -2187,6 +2189,7 @@ states.blown_attacker = {
 		gen_action_piece(game.who)
 	},
 	piece(p) {
+		eliminate_detachments_stacked_with_corps(p)
 		blow_unit(p, 2)
 		next_attack()
 	},
@@ -2199,6 +2202,7 @@ states.eliminated_attacker = {
 		gen_action_piece(game.who)
 	},
 	piece(p) {
+		eliminate_detachments_stacked_with_corps(p)
 		eliminate_unit(p)
 		next_attack()
 	},
@@ -2211,6 +2215,7 @@ states.blown_defender = {
 		gen_action_piece(game.target)
 	},
 	piece(p) {
+		eliminate_detachments_stacked_with_corps(p)
 		blow_unit(p, 2)
 		set_next_player()
 		goto_pursuit()
@@ -2224,6 +2229,7 @@ states.eliminated_defender = {
 		gen_action_piece(game.target)
 	},
 	piece(p) {
+		eliminate_detachments_stacked_with_corps(p)
 		eliminate_unit(p)
 		set_next_player()
 		goto_pursuit()
@@ -2612,7 +2618,7 @@ exports.action = function (state, player, action, arg) {
 	game = state
 	let S = states[game.state]
 	if (action in S)
-		S[action](arg, player)
+		S[action](arg)
 	else if (action === "undo" && game.undo && game.undo.length > 0)
 		pop_undo()
 	else
