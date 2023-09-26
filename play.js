@@ -525,6 +525,9 @@ function on_log(text) {
 	text = text.replace(/P(\d+)/g, sub_piece)
 	text = text.replace(/\bD\d\b/g, sub_dice)
 
+	text = text.replace(/French/g, '<span class="french">French</span>')
+	text = text.replace(/Coalition/g, '<span class="anglo">Coalition</span>')
+
 	if (text.match(/^\.h1 /)) {
 		text = text.substring(4)
 		p.className = "h1"

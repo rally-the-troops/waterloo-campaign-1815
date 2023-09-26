@@ -19,9 +19,12 @@ body.Coalition header.your_turn { background-color: white; }
 #log div { padding-left: 20px; text-indent: -12px; }
 #log div.i { padding-left: 32px; text-indent: -12px; }
 
+#log span.french { background-color: hsl(195, 72%, 90%); padding: 0 2px }
+#log span.anglo { background-color: white; padding: 0 2px }
+#log span.prussian { background-color: gainsboro; padding: 0 2px }
+
 main {
 	background-color: dimgray;
-	background-color:  hsl(39, 10%, 40%);
 }
 
 #mapwrap {
