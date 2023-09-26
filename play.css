@@ -1,9 +1,9 @@
 header { background-color: hsl(39, 25%, 75%); }
 #replay_panel { background-color: hsl(39, 25%, 75%);; }
 #log { background-color: hsl(50, 50%, 92%); }
-#log .h1 { background-color: hsl(50, 25%, 65%); }
-#log .h2 { background-color: hsl(50, 25%, 75%); }
-#log .h3 { background-color: hsl(50, 40%, 85%); }
+#log .h1 { background-color: #803a3c; color: gold; text-shadow: 0 0 1px white; }
+#log .h2 { background-color: hsl(45, 30%, 70%); }
+#log .h3 { background-color: hsl(45, 30%, 80%); }
 
 body.French header.your_turn { background-color:  hsl(195, 72%, 75%); }
 #role_French .role_name { background-color:  hsl(195, 72%, 80%); }
@@ -14,12 +14,7 @@ body.Coalition header.your_turn { background-color: white; }
 #log .h1 { font-weight: bold; padding-top:2px; padding-bottom:2px; }
 #log .h2 { padding-top:1px; padding-bottom:1px; }
 #log .h3 { padding-top:1px; padding-bottom:1px; }
-#log .h1, .h2, .h3 {
-	margin: 9px 0;
-	text-align: center;
-	border-bottom: 1px solid #444;
-	border-top: 1px solid #444;
-}
+#log .h1, .h2, .h3 { margin: 9px 0; text-align: center; }
 
 #log div { padding-left: 20px; text-indent: -12px; }
 #log div.i { padding-left: 32px; text-indent: -12px; }
@@ -155,7 +150,7 @@ main {
 	box-sizing: border-box;
 	position: absolute;
 	border-radius: 50%;
-	border: 2px solid transparent;
+	border: 4px solid transparent;
 }
 
 .hex.town { background-color: #F006; }
@@ -259,7 +254,12 @@ main {
 }
 
 .hex.tip {
-	border: 4px solid #f008;
+	border: 5px solid yellow;
+	z-index: 200;
+}
+
+div.french.tip, div.anglo.tip, div.prussian.tip {
+	box-shadow: 0 0 0 4px yellow;
 	z-index: 200;
 }
 
@@ -284,13 +284,6 @@ main {
 #arrow.r3 { transform: rotate(210deg) }
 #arrow.r4 { transform: rotate(270deg) }
 #arrow.r5 { transform: rotate(330deg) }
-
-div.french.tip, div.anglo.tip, div.prussian.tip {
-	box-shadow: 0 0 0 4px #f008;
-	z-index: 200;
-=======
->>>>>>> da5fc7d (Pause before rolling for attack. Pause at end of turn.)
-}
 
 .marker { border-color: hsl(199,65%,85%) hsl(199,55%,50%) hsl(199,55%,50%) hsl(199,65%,85%) }
 .large.french, .small.french { border-color: hsl(199,85%,90%) hsl(199,75%,70%) hsl(199,75%,70%) hsl(199,85%,90%) }
@@ -345,13 +338,6 @@ div.french.tip, div.anglo.tip, div.prussian.tip {
 .small.y4 { background-position: 0px -102px }
 .small.y5 { background-position: 0px -136px }
 .small.y6 { background-position: 0px -170px }
-
-.small.flip.y1 { background-position: -34px -0px }
-.small.flip.y2 { background-position: -34px -34px }
-.small.flip.y3 { background-position: -34px -68px }
-.small.flip.y4 { background-position: -34px -102px }
-.small.flip.y5 { background-position: -34px -136px }
-.small.flip.y6 { background-position: -34px -170px }
 
 #log .dice {
 	display: inline-block;

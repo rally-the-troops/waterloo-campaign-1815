@@ -452,6 +452,30 @@ function on_update() {
 	action_button("undo", "Undo")
 }
 
+function on_focus_hex_tip(id) {
+	ui.hexes[id].classList.add("tip")
+}
+
+function on_blur_hex_tip(id) {
+	ui.hexes[id].classList.remove("tip")
+}
+
+function on_click_hex_tip(id) {
+	ui.hexes[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
+}
+
+function on_focus_piece_tip(id) {
+	ui.pieces[id].classList.add("tip")
+}
+
+function on_blur_piece_tip(id) {
+	ui.pieces[id].classList.remove("tip")
+}
+
+function on_click_piece_tip(id) {
+	ui.pieces[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
+}
+
 const DICE = {
 	D0: '[0]',
 	D1: '[1]',
@@ -470,13 +494,23 @@ function sub_hex(match, p1) {
 	let x = p1 | 0
 	let n = data.map.names[x]
 	if (n)
-		return x + " (" + n + ")"
-	return x
+		n = x + " (" + n + ")"
+	else
+		n = x
+	return `<span class="hextip" onmouseenter="on_focus_hex_tip(${x})" onmouseleave="on_blur_hex_tip(${x})" onclick="on_click_hex_tip(${x})">${n}</span>`
 }
 
 function sub_piece(match, p1) {
 	let x = p1 | 0
-	return data.pieces[x].name
+	let n = data.pieces[x].name
+	let c = "piece"
+	if (data.pieces[x].side === "Anglo")
+		c = "tip anglo"
+	else if (data.pieces[x].side === "Prussian")
+		c = "tip prussian"
+	else if (data.pieces[x].side === "French")
+		c = "tip french"
+	return `<span class="${c}" onmouseenter="on_focus_piece_tip(${x})" onmouseleave="on_blur_piece_tip(${x})" onclick="on_click_piece_tip(${x})">${n}</span>`
 }
 
 function on_log(text) {
