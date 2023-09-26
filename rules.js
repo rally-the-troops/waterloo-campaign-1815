@@ -1227,21 +1227,25 @@ states.movement = {
 			remain = Math.min(remain, game.prussian_moves)
 
 		if (game.remain > 0)
-			prompt("Movement: " + game.remain + " moves remain.")
+			prompt("Movement: " + remain + " moves remain.")
 		else
 			prompt("Movement.")
 
 		// June 15: Surprise
 		if (game.turn === 1 && game.active === P2) {
-			if (piece_is_not_in_enemy_zoc(ZIETHEN))
+			if (piece_is_not_in_enemy_zoc(ZIETHEN)) {
+				view.prompt += " Only " + piece_name(ZIETHEN) + " may move."
 				gen_action_piece(ZIETHEN)
+			}
 			view.actions.pass = 1
 			return
 		}
 
 		// June 15: Congestion
 		if (game.turn <= 2 && game.active === P1) {
+			view.remain = 0
 			if (game.french_moves === 0) {
+				prompt("No moves remain.")
 				view.actions.pass = 1
 				return
 			}
@@ -1249,7 +1253,9 @@ states.movement = {
 
 		// June 15: Concentrating the Army
 		if (game.turn === 2 && game.active === P2) {
+			view.remain = 0
 			if (game.prussian_moves === 0) {
+				prompt("No moves remain.")
 				view.actions.pass = 1
 				return
 			}
@@ -1257,6 +1263,7 @@ states.movement = {
 
 		// June 15: Delayed Reaction
 		if (game.turn === 2 && game.active === P2) {
+			view.prompt += " Only Prussian corps may move."
 			for (let p of prussian_cav)
 				if (piece_is_not_in_enemy_cav_zoc(p))
 					gen_action_piece(p)
@@ -1290,6 +1297,8 @@ states.movement = {
 			for (let p of friendly_infantry_corps())
 				if (piece_is_not_in_enemy_zoc(p))
 					gen_action_piece(p)
+		} else {
+			view.prompt += " You must enter reinforcements."
 		}
 
 		view.actions.pass = may_pass
