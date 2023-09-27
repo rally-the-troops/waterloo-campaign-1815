@@ -1892,6 +1892,7 @@ states.attack_who = {
 
 function begin_attack() {
 	game.count = 0
+	// TODO: move to just before rolling so we can see committed fresh cav!
 	for (let p of friendly_infantry_corps())
 		if (can_attack_infantry_support(p))
 			game.count |= (1 << p)
