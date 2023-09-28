@@ -472,7 +472,7 @@ function on_click_piece_tip(id) {
 	ui.pieces[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
 }
 
-const DICE = {
+const DICE_TEXT = {
 	D0: '[0]',
 	D1: '[1]',
 	D2: '[2]',
@@ -480,6 +480,16 @@ const DICE = {
 	D4: '[4]',
 	D5: '[5]',
 	D6: '[6]',
+}
+
+const DICE = {
+	D0: '<span class="dice d0"></span>',
+	D1: '<span class="dice d1"></span>',
+	D2: '<span class="dice d2"></span>',
+	D3: '<span class="dice d3"></span>',
+	D4: '<span class="dice d4"></span>',
+	D5: '<span class="dice d5"></span>',
+	D6: '<span class="dice d6"></span>',
 }
 
 function sub_dice(match) {
@@ -493,7 +503,7 @@ function sub_hex(match, p1) {
 		n = x + " (" + n + ")"
 	else
 		n = x
-	return `<span class="hextip" onmouseenter="on_focus_hex_tip(${x})" onmouseleave="on_blur_hex_tip(${x})" onclick="on_click_hex_tip(${x})">${n}</span>`
+	return `<span class="tip" onmouseenter="on_focus_hex_tip(${x})" onmouseleave="on_blur_hex_tip(${x})" onclick="on_click_hex_tip(${x})">${n}</span>`
 }
 
 function sub_piece(match, p1) {
@@ -525,8 +535,8 @@ function on_log(text) {
 	text = text.replace(/P(\d+)/g, sub_piece)
 	text = text.replace(/\bD\d\b/g, sub_dice)
 
-	text = text.replace(/French/g, '<span class="french">French</span>')
-	text = text.replace(/Coalition/g, '<span class="anglo">Coalition</span>')
+	text = text.replace(/^French/g, '<span class="french">French</span>')
+	text = text.replace(/^Coalition/g, '<span class="anglo">Coalition</span>')
 
 	if (text.match(/^\.h1 /)) {
 		text = text.substring(4)

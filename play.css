@@ -1,5 +1,6 @@
 header { background-color: hsl(39, 25%, 75%); }
 #replay_panel { background-color: hsl(39, 25%, 75%);; }
+
 #log { background-color: hsl(50, 50%, 92%); }
 #log .h1 { background-color: #803a3c; color: gold; text-shadow: 0 0 1px white; }
 #log .h2 { background-color: hsl(45, 30%, 70%); }
@@ -10,14 +11,18 @@ body.French header.your_turn { background-color:  hsl(195, 72%, 75%); }
 body.Coalition header.your_turn { background-color: white; }
 #role_Coalition .role_name { background-color: white; }
 
-#log { padding-top: 0 }
 #log .h1 { font-weight: bold; padding-top:2px; padding-bottom:2px; }
 #log .h2 { padding-top:1px; padding-bottom:1px; }
 #log .h3 { padding-top:1px; padding-bottom:1px; }
-#log .h1, .h2, .h3 { margin: 9px 0; text-align: center; }
+#log .h1, #log .h2, #log .h3 { text-align: center; }
+#log .h1, #log .h2, #log .h3 { margin: 2px 0; }
+#log .h1, #log .h2, #log .h3 { border-top: 1px solid #000a; border-bottom: 1px solid #000a; }
 
 #log div { padding-left: 20px; text-indent: -12px; }
 #log div.i { padding-left: 32px; text-indent: -12px; }
+
+#log .tip { cursor: pointer }
+#log .tip:hover { text-decoration: underline }
 
 #log span.french { background-color: hsl(195, 72%, 90%); padding: 0 2px }
 #log span.anglo { background-color: white; padding: 0 2px }
@@ -344,7 +349,7 @@ div.french.tip, div.anglo.tip, div.prussian.tip {
 
 #log .dice {
 	display: inline-block;
-	vertical-align: -2px;
+	vertical-align: -3px;
 	width: 12px;
 	height: 12px;
 	background-size: 600% 100%;
