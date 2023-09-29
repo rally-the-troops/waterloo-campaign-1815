@@ -1941,6 +1941,7 @@ function goto_defend_support() {
 states.attack_support = {
 	inactive: "attack",
 	prompt() {
+		view.support = game.count
 		if (data.map.names[game.attack])
 			prompt("Attack " + piece_name(game.target) +
 				" at " + data.map.names[game.attack] +
@@ -1983,6 +1984,7 @@ states.attack_support = {
 states.defend_support = {
 	inactive: "commit cavalry",
 	prompt() {
+		view.support = game.count
 		if (data.map.names[game.attack])
 			prompt(piece_name(game.who) +
 				" attacks " + piece_name(game.target) +

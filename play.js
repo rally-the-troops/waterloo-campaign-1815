@@ -263,6 +263,12 @@ function is_action(action, arg) {
 	return !!(view.actions && view.actions[action] && set_has(view.actions[action], arg))
 }
 
+function is_piece_support(id) {
+	if (view.support)
+		return view.support & (1 << id)
+	return false
+}
+
 function find_hex_side(a, b) {
 	if (a > b)
 		return find_hex_side(b, a)
@@ -392,6 +398,7 @@ function on_update() {
 		ui.pieces[id].classList.toggle("action", is_action("piece", id))
 		ui.pieces[id].classList.toggle("selected", view.who === id)
 		ui.pieces[id].classList.toggle("target", view.target === id)
+		ui.pieces[id].classList.toggle("support", is_piece_support(id))
 	}
 
 	if (view.roads) {
@@ -500,7 +507,7 @@ function sub_hex(match, p1) {
 	let x = p1 | 0
 	let n = data.map.names[x]
 	if (n)
-		n = x + " (" + n + ")"
+		n = x + " " + n
 	else
 		n = x
 	return `<span class="tip" onmouseenter="on_focus_hex_tip(${x})" onmouseleave="on_blur_hex_tip(${x})" onclick="on_click_hex_tip(${x})">${n}</span>`
