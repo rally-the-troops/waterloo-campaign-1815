@@ -161,9 +161,9 @@ main {
 	border: 4px solid transparent;
 }
 
-.hex.town { background-color: #F006; }
-.hex.stream { background-color: #00F6; }
-.hex.town.stream { background-color: #F0F6; }
+.hex.range {
+	background-color: #ff03;
+}
 
 .hex.action {
 	border: 4px solid #fff6;

@@ -152,8 +152,24 @@ function on_focus_hex(evt) {
 		show_move_path(evt.target.my_id)
 }
 
+var focused_piece = null
+
 function on_focus_piece(evt) {
+	let p = evt.target.my_id
 	document.getElementById("status").textContent = evt.target.my_name
+	if (data.pieces[p].type === "hq") {
+		focused_piece = p
+		show_hq_range(p)
+	}
+}
+
+function on_blur_piece(evt) {
+	let p = evt.target.my_id
+	on_blur()
+	if (data.pieces[p].type === "hq") {
+		focused_piece = -1
+		hide_hq_range(p)
+	}
 }
 
 function on_click_action(evt) {
@@ -250,7 +266,7 @@ function build_hexes() {
 	for (let p = 0; p < ui.pieces.length; ++p) {
 		ui.pieces[p].onmousedown = on_click_action
 		ui.pieces[p].onmouseenter = on_focus_piece
-		ui.pieces[p].onmouseleave = on_blur
+		ui.pieces[p].onmouseleave = on_blur_piece
 		ui.pieces[p].my_action = "piece"
 		ui.pieces[p].my_id = p
 		ui.pieces[p].my_name = data.pieces[p].name
@@ -309,6 +325,46 @@ function find_reinforcement_z(who) {
 	return 0
 }
 
+function calc_distance(a, b) {
+	let ac = a % 100
+	let bc = b % 100
+	let ay = a / 100 | 0
+	let by = b / 100 | 0
+	let ax = ac - (ay >> 1)
+	let bx = bc - (by >> 1)
+	let az = -ax - ay
+	let bz = -bx - by
+	return Math.max(Math.abs(bx-ax), Math.abs(by-ay), Math.abs(bz-az))
+}
+
+function is_in_range(x, hq) {
+	let hq_x = view.pieces[hq] >> 1
+	if (hq_x >= 1000) {
+		let hq_m = view.pieces[hq] & 1
+		let hq_r = hq_m ? data.pieces[hq].range2 : data.pieces[hq].range1
+		return calc_distance(x, hq_x) === hq_r
+	}
+	return false
+}
+
+function show_hq_range(hq) {
+	for (let row = 0; row < data.map.rows; ++row) {
+		for (let col = 0; col < data.map.cols; ++col) {
+			let id = first_hex + row * 100 + col
+			ui.hexes[id].classList.toggle("range", is_in_range(id, hq))
+		}
+	}
+}
+
+function hide_hq_range() {
+	for (let row = 0; row < data.map.rows; ++row) {
+		for (let col = 0; col < data.map.cols; ++col) {
+			let id = first_hex + row * 100 + col
+			ui.hexes[id].classList.remove("range")
+		}
+	}
+}
+
 function on_update() {
 	ui.stack.fill(0)
 
@@ -322,6 +378,9 @@ function on_update() {
 			ui.hexes[id].classList.toggle("stop", is_action("stop_hex", id))
 		}
 	}
+
+	if (focused_piece <= 4)
+		show_hq_range(focused_piece)
 
 	for (let id = 0; id < piece_count; ++id) {
 		let hex = view.pieces[id] >> 1
