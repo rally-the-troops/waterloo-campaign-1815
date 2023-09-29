@@ -13,6 +13,13 @@ const piece_count = 39
 const first_hex = 1000
 const last_hex = 4041
 
+const ADJACENT = [
+	[-101,-100,-1,1,99,100],
+	[-100,-99,-1,1,100,101]
+]
+
+const DIRECTION = [ "r3", "r2", "r4", "r1", "r5", "r0" ]
+
 function find_piece(name) {
 	let id = data.pieces.findIndex(pc => pc.name === name)
 	if (id < 0)
@@ -81,6 +88,8 @@ const REINF_OFFSET = {
 }
 
 let ui = {
+	header: document.querySelector("header"),
+	arrow: document.getElementById("arrow"),
 	hexes: new Array(last_hex+1).fill(null),
 	sides: new Array((last_hex+1)*3).fill(null),
 	hex_x: new Array(last_hex+1).fill(0),
@@ -250,16 +259,6 @@ function build_hexes() {
 				hex.my_name = String(hex_id)
 
 			document.getElementById("hexes").appendChild(hex)
-
-			//
-			for (let s = 0; s < 3; ++s) {
-				let side_id = (hex_id << 2) + s
-				let elt = ui.sides[side_id] = document.createElement("div")
-				elt.className = "hexside + s" + s
-				elt.style.left = (hex_x) + "px"
-				elt.style.top = (hex_y) + "px"
-				document.getElementById("hexes").appendChild(elt)
-			}
 		}
 	}
 
@@ -381,6 +380,24 @@ function on_update() {
 
 	if (focused_piece <= 4)
 		show_hq_range(focused_piece)
+
+	if (view.who >= 0 && view.target >= 0) {
+		let wx = view.pieces[view.who] >> 1
+		let tx = view.pieces[view.target] >> 1
+		if (wx >= 1000 && tx >= 1000 && calc_distance(wx, tx) === 1) {
+			ui.arrow.style.left = (ui.hex_x[wx] - 25) + "px"
+			ui.arrow.style.top = (ui.hex_y[wx] - 50) + "px"
+			for (let i = 0; i < 6; ++i) {
+				let dx = ADJACENT[wx / 100 & 1][i]
+				if (tx - wx === dx)
+					ui.arrow.className = DIRECTION[i]
+			}
+		} else {
+			ui.arrow.className = "hide"
+		}
+	} else {
+		ui.arrow.className = "hide"
+	}
 
 	for (let id = 0; id < piece_count; ++id) {
 		let hex = view.pieces[id] >> 1
