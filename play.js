@@ -30,11 +30,11 @@ function find_piece(name) {
 for (let info of data.reinforcements)
 	info.list = info.list.map(name => find_piece(name))
 
-let yoff = 1555
-let xoff = 36
-let hex_dx = 58.67
-let hex_dy = 68
-let hex_r = 56 >> 1
+const yoff = 1555
+const xoff = 36
+const hex_dx = 58.67
+const hex_dy = 68
+const hex_r = 56 >> 1
 
 function set_has(set, item) {
 	if (!set)

@@ -84,74 +84,16 @@ main {
 	position: absolute;
 	text-align: center;
 	font-family: "Source Serif SmText";
-	//font-weight: bold;
 	font-size: 10px;
+	width: 70px;
 	line-height: 1em;
 	color: black;
-	text-shadow:
-		-1px -1px 1px white,
-		1px -1px 1px white,
-		1px 1px 1px white,
-		-1px 1px 1px white,
-		0 0 6px white
-		;
+	text-shadow: 0 0 2px white;
 }
 
-#label_3002,
-#label_1217,
-#label_1204,
-#label_1737,
-#label_3925,
-#label_2911
-{
+.label.caps {
 	font-size: 14px;
 	font-variant: small-caps;
-}
-
-#label_1015,
-#label_1018,
-#label_1021,
-#label_1024,
-#label_1100,
-#label_1201,
-#label_1239,
-#label_1401,
-#label_1407,
-#label_1830,
-#label_1928,
-#label_2035,
-#label_2123,
-#label_2223,
-#label_2327,
-#label_2537,
-#label_2715,
-#label_3013,
-#label_3031,
-#label_3206,
-#label_3226,
-#label_3231,
-#label_3233,
-#label_3441,
-#label_3719,
-#label_3723,
-#label_3803
-{
-	margin-top: -10px
-}
-
-#label_1800,
-#label_2324,
-#label_2500,
-#label_3327,
-#label_3708
-{
-	margin-top: -30px;
-}
-
-#label_1118
-{
-	margin-top: -15px;
-	margin-left: 10px;
 }
 
 .hex {
@@ -186,32 +128,6 @@ main {
 
 .hex.move.stop, .hex.road.stop {
 	background-color: #f006;
-}
-
-.hexside {
-	position: absolute;
-	display: none;
-	transform-origin: 0 0;
-	width: 58px;
-	height: 4px;
-}
-
-.hexside.s1 { transform: rotate(-60deg) }
-.hexside.s2 { transform: rotate(-120deg) }
-
-.hexside.road {
-	display: block;
-	background-color: brown;
-}
-
-.hexside.river {
-	display: block;
-	background-color: blue;
-}
-
-.hexside.road.river {
-	display: block;
-	background-color: green;
 }
 
 .large {
