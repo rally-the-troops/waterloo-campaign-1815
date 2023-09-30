@@ -110,10 +110,6 @@ main {
 	border: 4px solid transparent;
 }
 
-.hex.range {
-	background-color: #ff03;
-}
-
 .hex.action {
 	border: 4px solid #fff6;
 	background-color: #fff2;
@@ -125,17 +121,22 @@ main {
 	background-color: #f002;
 }
 
-.hex.move {
-	background-color: #0a04;
-}
+.hex.move { background-color: #0a04 !important }
+.hex.road { background-color: #8804 !important }
+.hex.move.stop, .hex.road.stop { background-color: #f006 !important }
 
-.hex.road {
-	background-color: #8804;
-}
+.hex.f_range { background-color: #05a6 !important }
+.hex.a_range { background-color: #b326 !important }
+.hex.p_range { background-color: #8286 !important }
 
-.hex.move.stop, .hex.road.stop {
-	background-color: #f006;
-}
+#hexes.p1hq .hex.p1hq { background-color: #05a4 }
+#hexes.p2hq .hex.p2hq { background-color: #b324 }
+
+#hexes.p1zoc .hex.p1zoi { background-color: #05a4 }
+#hexes.p1zoc .hex.p1zoc { background-color: #05a8 }
+
+#hexes.p2zoc .hex.p2zoi { background-color: #b324 }
+#hexes.p2zoc .hex.p2zoc { background-color: #b328 }
 
 .large {
 	position: absolute;

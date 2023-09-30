@@ -207,8 +207,19 @@ function toggle_pieces() {
 	document.getElementById("pieces").classList.toggle("hide")
 }
 
-function toggle_zoc() {
-	document.getElementById("hexes").classList.toggle("zoc")
+function toggle_hexes() {
+	// Cycle between showing nothing, command ranges, and zocs
+	let elt = document.getElementById("hexes")
+	if (elt.className == "")
+		elt.className = "p1hq"
+	else if (elt.className == "p1hq")
+		elt.className = "p2hq"
+	else if (elt.className == "p2hq")
+		elt.className = "p1zoc"
+	else if (elt.className == "p1zoc")
+		elt.className = "p2zoc"
+	else if (elt.className == "p2zoc")
+		elt.className = ""
 }
 
 function is_action(action, arg) {
@@ -337,7 +348,7 @@ function show_move_path(x) {
  * SHOW HQ RANGE (FOR HQ MOUSEOVER)
  */
 
-function is_in_range(x, hq) {
+function is_on_range(x, hq) {
 	let hq_x = view.pieces[hq] >> 1
 	if (hq_x >= 1000) {
 		let hq_m = view.pieces[hq] & 1
@@ -347,11 +358,26 @@ function is_in_range(x, hq) {
 	return false
 }
 
+function is_in_range(x, hq) {
+	let hq_x = view.pieces[hq] >> 1
+	if (hq_x >= 1000) {
+		let hq_m = view.pieces[hq] & 1
+		let hq_r = hq_m ? data.pieces[hq].range2 : data.pieces[hq].range1
+		return calc_distance(x, hq_x) <= hq_r
+	}
+	return false
+}
+
 function show_hq_range(hq) {
 	for (let row = 0; row < data.map.rows; ++row) {
 		for (let col = 0; col < data.map.cols; ++col) {
 			let id = first_hex + row * 100 + col
-			ui.hexes[id].classList.toggle("range", is_in_range(id, hq))
+			if (hq <= 2)
+				ui.hexes[id].classList.toggle("f_range", is_on_range(id, hq))
+			else if (hq === 3)
+				ui.hexes[id].classList.toggle("a_range", is_on_range(id, hq))
+			else if (hq === 4)
+				ui.hexes[id].classList.toggle("p_range", is_on_range(id, hq))
 		}
 	}
 }
@@ -360,7 +386,9 @@ function hide_hq_range() {
 	for (let row = 0; row < data.map.rows; ++row) {
 		for (let col = 0; col < data.map.cols; ++col) {
 			let id = first_hex + row * 100 + col
-			ui.hexes[id].classList.remove("range")
+			ui.hexes[id].classList.remove("f_range")
+			ui.hexes[id].classList.remove("a_range")
+			ui.hexes[id].classList.remove("p_range")
 		}
 	}
 }
@@ -395,6 +423,12 @@ function on_update() {
 			let id = first_hex + row * 100 + col
 			ui.hexes[id].classList.toggle("action", is_action("hex", id) || is_action("stop_hex", id))
 			ui.hexes[id].classList.toggle("stop", is_action("stop_hex", id))
+			ui.hexes[id].classList.toggle("p1zoc", is_p1_zoc(id))
+			ui.hexes[id].classList.toggle("p1zoi", is_p1_zoi(id))
+			ui.hexes[id].classList.toggle("p2zoc", is_p2_zoc(id))
+			ui.hexes[id].classList.toggle("p2zoi", is_p2_zoi(id))
+			ui.hexes[id].classList.toggle("p1hq", is_in_range(id, 0) || is_in_range(id, 1) || is_in_range(id, 2))
+			ui.hexes[id].classList.toggle("p2hq", is_in_range(id, 3) || is_in_range(id, 4))
 		}
 	}
 
