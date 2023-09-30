@@ -11,6 +11,8 @@ body.French header.your_turn { background-color:  hsl(195, 72%, 75%); }
 body.Coalition header.your_turn { background-color: white; }
 #role_Coalition .role_name { background-color: white; }
 
+.role_vp { float: right; }
+
 #log .h1 { font-weight: bold; padding-top:2px; padding-bottom:2px; }
 #log .h2 { padding-top:1px; padding-bottom:1px; }
 #log .h3 { padding-top:1px; padding-bottom:1px; }

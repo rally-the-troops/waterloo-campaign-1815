@@ -1,7 +1,5 @@
 "use strict"
 
-// TODO: show VP in player list
-
 const P1 = "French"
 const P2 = "Coalition"
 
@@ -2382,42 +2380,52 @@ function goto_end_phase() {
 	goto_command_phase()
 }
 
-function goto_victory_conditions() {
-	game.active = P1
+function count_french_vp() {
+	let vp = 0
+	for (let p of p2_corps)
+		if (piece_hex(p) === ELIMINATED)
+			vp += 3
+	for (let p of p2_det)
+		if (piece_hex(p) === ELIMINATED)
+			vp += 1
+	return vp
+}
 
-	log_h1("End of Game")
-
-	let vp1 = 0
-	let vp2 = 0
-
+function count_coalition_vp() {
+	let vp = 0
 	for (let p of p1_corps) {
 		if (piece_hex(p) === ELIMINATED) {
 			if (p === IMPERIAL_GUARD || p === IMPERIAL_GUARD_CAV)
-				vp2 += 5
+				vp += 5
 			else
-				vp2 += 3
+				vp += 3
 		}
 	}
 	for (let p of p1_det) {
 		if (piece_hex(p) === ELIMINATED) {
 			if (p === GRAND_BATTERY || p === OLD_GUARD)
-				vp2 += 2
+				vp += 2
 			else
-				vp2 += 1
+				vp += 1
 		}
 	}
+	return vp
+}
 
-	for (let p of p2_corps)
-		if (piece_hex(p) === ELIMINATED)
-			vp1 += 3
-	for (let p of p2_det)
-		if (piece_hex(p) === ELIMINATED)
-			vp1 += 1
+function goto_victory_conditions() {
+	game.active = P1
 
-	if (search_brussels_path())
+	log_h1("End of Game")
+
+	let vp1 = count_french_vp()
+	if (search_brussels_path()) {
+		log(P1 + " " + vp1 + " + 5 VP.")
 		vp1 += 5
+	} else {
+		log(P1 + " " + vp1 + " + 0 VP.")
+	}
 
-	log(P1 + " " + vp1 + " VP.")
+	let vp2 = count_coalition_vp()
 	log(P2 + " " + vp2 + " VP.")
 
 	if (vp1 >= vp2 + 12)

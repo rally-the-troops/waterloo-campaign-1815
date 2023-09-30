@@ -1,77 +1,26 @@
 "use strict"
 
-const ELIMINATED = 0
-const SWAPPED = 200
-const REINFORCEMENTS = 100
-const AVAILABLE_P1 = 101
-const AVAILABLE_P2 = 102
-const BLOWN = 103
+/* global data, view, action_button, send_action, scroll_with_middle_mouse */
 
-const last_corps = 22
-const piece_count = 39
+/*
+ * CONSTANTS AND LISTS
+ */
 
-const first_hex = 1000
-const last_hex = 4041
-
-const ADJACENT = [
-	[-101,-100,-1,1,99,100],
-	[-100,-99,-1,1,100,101]
-]
-
-const DIRECTION = [ "r3", "r2", "r4", "r1", "r5", "r0" ]
-
-function find_piece(name) {
-	let id = data.pieces.findIndex(pc => pc.name === name)
-	if (id < 0)
-		throw new Error("PIECE NOT FOUND: " + name)
-	return id
+const DICE = {
+	D0: '<span class="dice d0"></span>',
+	D1: '<span class="dice d1"></span>',
+	D2: '<span class="dice d2"></span>',
+	D3: '<span class="dice d3"></span>',
+	D4: '<span class="dice d4"></span>',
+	D5: '<span class="dice d5"></span>',
+	D6: '<span class="dice d6"></span>',
 }
-
-for (let info of data.reinforcements)
-	info.list = info.list.map(name => find_piece(name))
 
 const yoff = 1555
 const xoff = 36
 const hex_dx = 58.67
 const hex_dy = 68
 const hex_r = 56 >> 1
-
-function set_has(set, item) {
-	if (!set)
-		return false
-	let a = 0
-	let b = set.length - 1
-	while (a <= b) {
-		let m = (a + b) >> 1
-		let x = set[m]
-		if (item < x)
-			b = m - 1
-		else if (item > x)
-			a = m + 1
-		else
-			return true
-	}
-	return false
-}
-
-function map_get(map, key, missing) {
-	let a = 0
-	let b = (map.length >> 1) - 1
-	while (a <= b) {
-		let m = (a + b) >> 1
-		let x = map[m<<1]
-		if (key < x)
-			b = m - 1
-		else if (key > x)
-			a = m + 1
-		else
-			return map[(m<<1)+1]
-	}
-	return missing
-}
-
-const FRENCH = "French"
-const COALITION = "Coalition"
 
 const TURN_X = 20 - 70 + 35 + 8 + 20
 const TURN_Y = 1745 + 20
@@ -87,11 +36,79 @@ const REINF_OFFSET = {
 	4015: [ 0, -hex_dy * 3/8 ],
 }
 
+const P1 = "French"
+const P2 = "Coalition"
+
+const ELIMINATED = 0
+const REINFORCEMENTS = 100
+const AVAILABLE_P1 = 101
+const AVAILABLE_P2 = 102
+const BLOWN = 103
+
+const last_corps = 22
+const piece_count = 39
+
+const first_hex = 1000
+const last_hex = 4041
+
+const adjacent_x1 = [
+	[-101,-100,-1,1,99,100],
+	[-100,-99,-1,1,100,101]
+]
+
+const adjacent_cn = [ "r3", "r2", "r4", "r1", "r5", "r0" ]
+
+const data_rivers = []
+const data_bridges = []
+
+for (let [a, b] of data.map.rivers) {
+	set_add(data_rivers, a * 10000 + b)
+	set_add(data_rivers, b * 10000 + a)
+}
+
+for (let [a, b] of data.map.bridges) {
+	set_delete(data_rivers, a * 10000 + b)
+	set_delete(data_rivers, b * 10000 + a)
+	set_add(data_bridges, a * 10000 + b)
+	set_add(data_bridges, b * 10000 + a)
+}
+
+function make_piece_list(f) {
+	let list = []
+	for (let p = 0; p < data.pieces.length; ++p)
+		if (f(data.pieces[p]))
+			list.push(p)
+	return list
+}
+
+const p1_corps = make_piece_list(p => p.side === P1 && (p.type === "inf" || p.type === "cav"))
+const p2_corps = make_piece_list(p => p.side !== P1 && (p.type === "inf" || p.type === "cav"))
+const p1_det = make_piece_list(p => p.side === P1 && p.type === "det")
+const p2_det = make_piece_list(p => p.side !== P1 && p.type === "det")
+
+function find_piece(name) {
+	let id = data.pieces.findIndex(pc => pc.name === name)
+	if (id < 0)
+		throw new Error("PIECE NOT FOUND: " + name)
+	return id
+}
+
+const OLD_GUARD = find_piece("Old Guard")
+const GRAND_BATTERY = find_piece("Grand Battery")
+const IMPERIAL_GUARD = find_piece("Guard Corps (Drouot)")
+const IMPERIAL_GUARD_CAV = find_piece("Guard Cav Corps (Guyot)")
+
+for (let info of data.reinforcements)
+	info.list = info.list.map(name => find_piece(name))
+
+/*
+ * INIT UI
+ */
+
 let ui = {
 	header: document.querySelector("header"),
 	arrow: document.getElementById("arrow"),
 	hexes: new Array(last_hex+1).fill(null),
-	sides: new Array((last_hex+1)*3).fill(null),
 	hex_x: new Array(last_hex+1).fill(0),
 	hex_y: new Array(last_hex+1).fill(0),
 	pieces: [
@@ -140,28 +157,105 @@ let ui = {
 	remain: document.getElementById("marker_remain"),
 	french_moves: document.getElementById("marker_french_moves"),
 	prussian_moves: document.getElementById("marker_prussian_moves"),
+	french_vp: document.querySelector("#role_French .role_vp"),
+	coalition_vp: document.querySelector("#role_Coalition .role_vp"),
 }
+
+for (let row = 0; row < data.map.rows; ++row) {
+	for (let col = 0; col < data.map.cols; ++col) {
+		let hex_id = first_hex + 100 * row + col
+		let hex_x = ui.hex_x[hex_id] = Math.floor(xoff + hex_dx * (col + (row & 1) * 0.5 + 0.5))
+		let hex_y = ui.hex_y[hex_id] = Math.floor(yoff - hex_dy * 3 / 4 * row + hex_dy/2)
+
+		let hex = ui.hexes[hex_id] = document.createElement("div")
+		hex.className = "hex"
+		hex.style.left = (hex_x - hex_r) + "px"
+		hex.style.top = (hex_y - hex_r) + "px"
+		hex.style.width = (hex_r * 2) + "px"
+		hex.style.height = (hex_r * 2) + "px"
+		hex.onmousedown = on_click_action
+		hex.onmouseenter = on_focus_hex
+		hex.onmouseleave = on_blur_hex
+		hex.my_action = "hex"
+		hex.my_action_2 = "stop_hex"
+		hex.my_id = hex_id
+		if (data.map.names[hex_id])
+			hex.my_name = String(hex_id) + " (" + data.map.names[hex_id] + ")"
+		else
+			hex.my_name = String(hex_id)
+
+		document.getElementById("hexes").appendChild(hex)
+	}
+}
+
+for (let p = 0; p < ui.pieces.length; ++p) {
+	ui.pieces[p].onmousedown = on_click_action
+	ui.pieces[p].onmouseenter = on_focus_piece
+	ui.pieces[p].onmouseleave = on_blur_piece
+	ui.pieces[p].my_action = "piece"
+	ui.pieces[p].my_id = p
+	ui.pieces[p].my_name = data.pieces[p].name
+}
+
+scroll_with_middle_mouse("main")
+
+/*
+ * TOOLTIPS & ACTIONS
+ */
 
 function toggle_pieces() {
 	document.getElementById("pieces").classList.toggle("hide")
 }
 
-function on_blur(evt) {
+function toggle_zoc() {
+	document.getElementById("hexes").classList.toggle("zoc")
+}
+
+function is_action(action, arg) {
+	if (arg === undefined)
+		return !!(view.actions && view.actions[action] === 1)
+	return !!(view.actions && view.actions[action] && set_has(view.actions[action], arg))
+}
+
+function on_click_action(evt) {
+	if (evt.button === 0) {
+		if (send_action(evt.target.my_action, evt.target.my_id))
+			evt.stopPropagation()
+		if (evt.target.my_action_2)
+			if (send_action(evt.target.my_action_2, evt.target.my_id))
+				evt.stopPropagation()
+	}
+}
+
+function on_focus_hex_tip(id) {
+	ui.hexes[id].classList.add("tip")
+}
+
+function on_blur_hex_tip(id) {
+	ui.hexes[id].classList.remove("tip")
+}
+
+function on_click_hex_tip(id) {
+	ui.hexes[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
+}
+
+function on_focus_piece_tip(id) {
+	ui.pieces[id].classList.add("tip")
+}
+
+function on_blur_piece_tip(id) {
+	ui.pieces[id].classList.remove("tip")
+}
+
+function on_click_piece_tip(id) {
+	ui.pieces[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
+}
+
+function on_blur() {
 	document.getElementById("status").textContent = ""
 }
 
-function on_blur_hex(evt) {
-	on_blur()
-	hide_move_path()
-}
-
-function on_focus_hex(evt) {
-	document.getElementById("status").textContent = "Hex " + evt.target.my_name
-	if (view && view.move_from)
-		show_move_path(evt.target.my_id)
-}
-
-var focused_piece = null
+var focused_piece = -1
 
 function on_focus_piece(evt) {
 	let p = evt.target.my_id
@@ -181,15 +275,20 @@ function on_blur_piece(evt) {
 	}
 }
 
-function on_click_action(evt) {
-	if (evt.button === 0) {
-		if (send_action(evt.target.my_action, evt.target.my_id))
-			evt.stopPropagation()
-		if (evt.target.my_action_2)
-			if (send_action(evt.target.my_action_2, evt.target.my_id))
-				evt.stopPropagation()
-	}
+function on_focus_hex(evt) {
+	document.getElementById("status").textContent = "Hex " + evt.target.my_name
+	if (view && view.move_from)
+		show_move_path(evt.target.my_id)
 }
+
+function on_blur_hex() {
+	on_blur()
+	hide_move_path()
+}
+
+/*
+ * SHOW PATH (FOR MOVE ACTIONS)
+ */
 
 var _move_path = []
 
@@ -234,107 +333,9 @@ function show_move_path(x) {
 
 }
 
-function build_hexes() {
-	for (let row = 0; row < data.map.rows; ++row) {
-		for (let col = 0; col < data.map.cols; ++col) {
-			let hex_id = first_hex + 100 * row + col
-			let hex_x = ui.hex_x[hex_id] = Math.floor(xoff + hex_dx * (col + (row & 1) * 0.5 + 0.5))
-			let hex_y = ui.hex_y[hex_id] = Math.floor(yoff - hex_dy * 3 / 4 * row + hex_dy/2)
-
-			let hex = ui.hexes[hex_id] = document.createElement("div")
-			hex.className = "hex"
-			hex.style.left = (hex_x - hex_r) + "px"
-			hex.style.top = (hex_y - hex_r) + "px"
-			hex.style.width = (hex_r * 2) + "px"
-			hex.style.height = (hex_r * 2) + "px"
-			hex.onmousedown = on_click_action
-			hex.onmouseenter = on_focus_hex
-			hex.onmouseleave = on_blur_hex
-			hex.my_action = "hex"
-			hex.my_action_2 = "stop_hex"
-			hex.my_id = hex_id
-			if (data.map.names[hex_id])
-				hex.my_name = String(hex_id) + " (" + data.map.names[hex_id] + ")"
-			else
-				hex.my_name = String(hex_id)
-
-			document.getElementById("hexes").appendChild(hex)
-		}
-	}
-
-	for (let p = 0; p < ui.pieces.length; ++p) {
-		ui.pieces[p].onmousedown = on_click_action
-		ui.pieces[p].onmouseenter = on_focus_piece
-		ui.pieces[p].onmouseleave = on_blur_piece
-		ui.pieces[p].my_action = "piece"
-		ui.pieces[p].my_id = p
-		ui.pieces[p].my_name = data.pieces[p].name
-	}
-}
-
-function is_action(action, arg) {
-	if (arg === undefined)
-		return !!(view.actions && view.actions[action] === 1)
-	return !!(view.actions && view.actions[action] && set_has(view.actions[action], arg))
-}
-
-function is_piece_support(id) {
-	if (view.support)
-		return view.support & (1 << id)
-	return false
-}
-
-function find_hex_side(a, b) {
-	if (a > b)
-		return find_hex_side(b, a)
-	if (b === a + 1)
-		return (a << 2) + 0
-	if ((a/100) & 1) {
-		if (b === a + 101)
-			return (a << 2) + 1
-		if (b === a + 100)
-			return (a << 2) + 2
-	} else {
-		if (b === a + 100)
-			return (a << 2) + 1
-		if (b === a + 99)
-			return (a << 2) + 2
-	}
-	return -1
-}
-
-function find_reinforcement_hex(who) {
-	for (let info of data.reinforcements)
-		for (let p of info.list)
-			if (p === who)
-				return info.hex
-	return REINFORCEMENTS
-}
-
-function find_reinforcement_z(who) {
-	for (let info of data.reinforcements) {
-		let n = 0
-		for (let p of info.list) {
-			if (p === who)
-				return n
-			if ((view.pieces[p] >> 1) === REINFORCEMENTS)
-				++n
-		}
-	}
-	return 0
-}
-
-function calc_distance(a, b) {
-	let ac = a % 100
-	let bc = b % 100
-	let ay = a / 100 | 0
-	let by = b / 100 | 0
-	let ax = ac - (ay >> 1)
-	let bx = bc - (by >> 1)
-	let az = -ax - ay
-	let bz = -bx - by
-	return Math.max(Math.abs(bx-ax), Math.abs(by-ay), Math.abs(bz-az))
-}
+/*
+ * SHOW HQ RANGE (FOR HQ MOUSEOVER)
+ */
 
 function is_in_range(x, hq) {
 	let hq_x = view.pieces[hq] >> 1
@@ -364,8 +365,27 @@ function hide_hq_range() {
 	}
 }
 
+/*
+ * UPDATE UI
+ */
+
+function is_piece_support(id) {
+	if (view.support)
+		return view.support & (1 << id)
+	return false
+}
+
 function on_update() {
 	ui.stack.fill(0)
+
+	update_zoc()
+
+	if (search_brussels_path())
+		ui.french_vp.textContent = count_french_vp() + " + 5 VP"
+	else
+		ui.french_vp.textContent = count_french_vp() + " + 0 VP"
+
+	ui.coalition_vp.textContent = count_coalition_vp() + " VP"
 
 	if (!view.move_path)
 		hide_move_path()
@@ -378,7 +398,7 @@ function on_update() {
 		}
 	}
 
-	if (focused_piece <= 4)
+	if (focused_piece >= 0)
 		show_hq_range(focused_piece)
 
 	if (view.who >= 0 && view.target >= 0) {
@@ -388,9 +408,9 @@ function on_update() {
 			ui.arrow.style.left = (ui.hex_x[wx] - 25) + "px"
 			ui.arrow.style.top = (ui.hex_y[wx] - 50) + "px"
 			for (let i = 0; i < 6; ++i) {
-				let dx = ADJACENT[wx / 100 & 1][i]
+				let dx = adjacent_x1[wx / 100 & 1][i]
 				if (tx - wx === dx)
-					ui.arrow.className = DIRECTION[i]
+					ui.arrow.className = adjacent_cn[i]
 			}
 		} else {
 			ui.arrow.className = "hide"
@@ -477,16 +497,6 @@ function on_update() {
 		ui.pieces[id].classList.toggle("support", is_piece_support(id))
 	}
 
-	if (view.roads) {
-		for (let road of view.roads) {
-			for (let i = 1; i < road.length; ++i) {
-				let id = find_hex_side(road[i-1], road[i])
-				console.log("id", id)
-				ui.sides[id].classList.add("road")
-			}
-		}
-	}
-
 	ui.turn.style.left = (40 + TURN_X + (view.turn-1) * TURN_DX) + "px"
 	ui.turn.classList.toggle("flip", view.rain === 2)
 
@@ -531,53 +541,9 @@ function on_update() {
 	action_button("undo", "Undo")
 }
 
-function on_focus_hex_tip(id) {
-	ui.hexes[id].classList.add("tip")
-}
-
-function on_blur_hex_tip(id) {
-	ui.hexes[id].classList.remove("tip")
-}
-
-function on_click_hex_tip(id) {
-	ui.hexes[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
-}
-
-function on_focus_piece_tip(id) {
-	ui.pieces[id].classList.add("tip")
-}
-
-function on_blur_piece_tip(id) {
-	ui.pieces[id].classList.remove("tip")
-}
-
-function on_click_piece_tip(id) {
-	ui.pieces[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
-}
-
-const DICE_TEXT = {
-	D0: '[0]',
-	D1: '[1]',
-	D2: '[2]',
-	D3: '[3]',
-	D4: '[4]',
-	D5: '[5]',
-	D6: '[6]',
-}
-
-const DICE = {
-	D0: '<span class="dice d0"></span>',
-	D1: '<span class="dice d1"></span>',
-	D2: '<span class="dice d2"></span>',
-	D3: '<span class="dice d3"></span>',
-	D4: '<span class="dice d4"></span>',
-	D5: '<span class="dice d5"></span>',
-	D6: '<span class="dice d6"></span>',
-}
-
-function sub_dice(match) {
-	return DICE[match]
-}
+/*
+ * LOG
+ */
 
 function sub_hex(match, p1) {
 	let x = p1 | 0
@@ -616,7 +582,7 @@ function on_log(text) {
 
 	text = text.replace(/\b(\d\d\d\d)\b/g, sub_hex)
 	text = text.replace(/P(\d+)/g, sub_piece)
-	text = text.replace(/\bD\d\b/g, sub_dice)
+	text = text.replace(/\bD\d\b/g, match => DICE[match])
 
 	text = text.replace(/^French/g, '<span class="french">French</span>')
 	text = text.replace(/^Coalition/g, '<span class="anglo">Coalition</span>')
@@ -638,5 +604,242 @@ function on_log(text) {
 	return p
 }
 
-build_hexes()
-scroll_with_middle_mouse("main")
+/*
+ * COPIED FROM RULES
+ */
+
+function array_remove(array, index) {
+	let n = array.length
+	for (let i = index + 1; i < n; ++i)
+		array[i - 1] = array[i]
+	array.length = n - 1
+}
+
+function array_insert(array, index, item) {
+	for (let i = array.length; i > index; --i)
+		array[i] = array[i - 1]
+	array[index] = item
+}
+
+function set_has(set, item) {
+	if (!set)
+		return false
+	let a = 0
+	let b = set.length - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = set[m]
+		if (item < x)
+			b = m - 1
+		else if (item > x)
+			a = m + 1
+		else
+			return true
+	}
+	return false
+}
+
+function set_add(set, item) {
+	let a = 0
+	let b = set.length - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = set[m]
+		if (item < x)
+			b = m - 1
+		else if (item > x)
+			a = m + 1
+		else
+			return
+	}
+	array_insert(set, a, item)
+}
+
+function set_delete(set, item) {
+	let a = 0
+	let b = set.length - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = set[m]
+		if (item < x)
+			b = m - 1
+		else if (item > x)
+			a = m + 1
+		else {
+			array_remove(set, m)
+			return
+		}
+	}
+}
+
+function map_get(map, key, missing) {
+	let a = 0
+	let b = (map.length >> 1) - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = map[m<<1]
+		if (key < x)
+			b = m - 1
+		else if (key > x)
+			a = m + 1
+		else
+			return map[(m<<1)+1]
+	}
+	return missing
+}
+
+function calc_distance(a, b) {
+	let ac = a % 100
+	let bc = b % 100
+	let ay = a / 100 | 0
+	let by = b / 100 | 0
+	let ax = ac - (ay >> 1)
+	let bx = bc - (by >> 1)
+	let az = -ax - ay
+	let bz = -bx - by
+	return Math.max(Math.abs(bx-ax), Math.abs(by-ay), Math.abs(bz-az))
+}
+
+var move_seen = new Array(last_hex - 999).fill(0)
+var zoc_cache = new Array(data.map.rows * 100).fill(0)
+
+function is_map_hex(x) {
+	if (x >= 1000 && x <= 4041)
+		return x % 100 <= 41
+	return false
+}
+
+function is_river(a, b) {
+	return set_has(data_rivers, a * 10000 + b)
+}
+
+function is_bridge(a, b) {
+	return set_has(data_bridges, a * 10000 + b)
+}
+
+function piece_hex(p) {
+	return view.pieces[p] >> 1
+}
+
+function for_each_adjacent(x, f) {
+	for (let dx of adjacent_x1[x / 100 & 1]) {
+		let nx = x + dx
+		if (is_map_hex(nx))
+			f(nx)
+	}
+}
+
+function update_zoc_imp(zoc, zoi, units) {
+	for (let p of units) {
+		let a = piece_hex(p)
+		zoc_cache[a - 1000] |= zoc
+		for_each_adjacent(a, b => {
+			if (!is_river(a, b)) {
+				zoc_cache[b - 1000] |= zoc
+				if (zoi) {
+					for_each_adjacent(b, c => {
+						if (!is_bridge(b, c))
+							zoc_cache[c - 1000] |= zoi
+					})
+				}
+			}
+		})
+	}
+}
+
+function update_zoc() {
+	zoc_cache.fill(0)
+	update_zoc_imp(1, 4, p1_corps)
+	update_zoc_imp(1, 0, p1_det)
+	update_zoc_imp(16, 64, p2_corps)
+	update_zoc_imp(16, 0, p2_det)
+}
+
+function is_p1_zoc(x) { return (zoc_cache[x-1000] & 1) > 0 }
+function is_p1_zoi(x) { return (zoc_cache[x-1000] & 4) > 0 }
+function is_p2_zoc(x) { return (zoc_cache[x-1000] & 16) > 0 }
+function is_p2_zoi(x) { return (zoc_cache[x-1000] & 64) > 0 }
+
+function search_brussels_path() {
+	move_seen.fill(0)
+	move_seen[1017-1000] = 1
+	move_seen[1018-1000] = 1
+
+	let queue = []
+	if (!is_p2_zoc(1017))
+		queue.push(1017)
+	if (!is_p2_zoc(1018))
+		queue.push(1018)
+
+	while (queue.length > 0) {
+		let here = queue.shift()
+		for_each_adjacent(here, next => {
+			if (move_seen[next-1000])
+				return
+			if (is_p2_zoc(next))
+				return
+			if (is_river(here, next))
+				return
+			move_seen[next-1000] = 1
+			queue.push(next)
+		})
+	}
+
+	if (move_seen[4006-1000] || move_seen[4015-1000] || move_seen[4025-1000])
+		return true
+
+	return false
+}
+
+function find_reinforcement_hex(who) {
+	for (let info of data.reinforcements)
+		for (let p of info.list)
+			if (p === who)
+				return info.hex
+	return REINFORCEMENTS
+}
+
+function find_reinforcement_z(who) {
+	for (let info of data.reinforcements) {
+		let n = 0
+		for (let p of info.list) {
+			if (p === who)
+				return n
+			if ((view.pieces[p] >> 1) === REINFORCEMENTS)
+				++n
+		}
+	}
+	return 0
+}
+
+function count_french_vp() {
+	let vp = 0
+	for (let p of p2_corps)
+		if (piece_hex(p) === ELIMINATED)
+			vp += 3
+	for (let p of p2_det)
+		if (piece_hex(p) === ELIMINATED)
+			vp += 1
+	return vp
+}
+
+function count_coalition_vp() {
+	let vp = 0
+	for (let p of p1_corps) {
+		if (piece_hex(p) === ELIMINATED) {
+			if (p === IMPERIAL_GUARD || p === IMPERIAL_GUARD_CAV)
+				vp += 5
+			else
+				vp += 3
+		}
+	}
+	for (let p of p1_det) {
+		if (piece_hex(p) === ELIMINATED) {
+			if (p === GRAND_BATTERY || p === OLD_GUARD)
+				vp += 2
+			else
+				vp += 1
+		}
+	}
+	return vp
+}
