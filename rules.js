@@ -600,7 +600,7 @@ states.place_hq_where = {
 			}
 		}
 	},
-	piece(p) {
+	piece(_) {
 		pop_undo()
 	},
 	hex(x) {
@@ -722,7 +722,7 @@ states.return_blown_where = {
 		}
 		gen_action_piece(game.who)
 	},
-	piece(p) {
+	piece(_) {
 		pop_undo()
 	},
 	hex(x) {
@@ -772,7 +772,6 @@ function begin_detachment_placement_step() {
 
 	for (let hq of friendly_hqs()) {
 		for (let p of friendly_detachments()) {
-			search_detachment(p, hq)
 			if (can_place_detachment(p, hq))
 				return
 		}
@@ -802,7 +801,7 @@ function can_place_detachment_at(x) {
 	)
 }
 
-function can_place_detachment_anywhere(p, hq) {
+function can_place_detachment_anywhere() {
 	// NOTE: must have run search_detachment before calling!
 	for (let row = 0; row < data.map.rows; ++row)
 		for (let col = 0; col < data.map.cols; ++col)
@@ -812,15 +811,15 @@ function can_place_detachment_anywhere(p, hq) {
 }
 
 function can_place_detachment(p, hq) {
-	// NOTE: must have run search_detachment before calling!
+	search_detachment(p, hq)
 	let x = piece_hex(p)
 	if (x === AVAILABLE_P1 || x === AVAILABLE_P2) {
 		if (pieces_are_associated(p, hq)) {
 			if (p === GRAND_BATTERY || p === OLD_GUARD) {
 				if (hq === NAPOLEON_HQ && piece_mode(NAPOLEON_HQ))
-					return can_place_detachment_anywhere(p, hq)
+					return can_place_detachment_anywhere()
 			} else {
-				return can_place_detachment_anywhere(p, hq)
+				return can_place_detachment_anywhere()
 			}
 		}
 	}
@@ -863,7 +862,6 @@ states.place_detachment_who = {
 		gen_action_piece(game.target)
 
 		for (let p of friendly_detachments()) {
-			search_detachment(p, game.target)
 			if (can_place_detachment(p, game.target))
 				gen_action_piece(p)
 		}
@@ -908,7 +906,7 @@ states.place_detachment_where = {
 				if (can_place_detachment_at(1000 + row * 100 + col))
 					gen_action_hex(1000 + row * 100 + col)
 	},
-	piece(p) {
+	piece(_) {
 		game.who = -1
 		game.state = "place_detachment_who"
 	},
@@ -1107,7 +1105,7 @@ states.withdrawal_to = {
 
 		gen_action_piece(game.who)
 	},
-	piece(p) {
+	piece(_) {
 		pop_undo()
 	},
 	blow() {
@@ -1345,7 +1343,7 @@ states.movement_to = {
 
 		gen_action_piece(game.who)
 	},
-	piece(p) {
+	piece(_) {
 		pop_undo()
 	},
 	stop_hex(x) {
@@ -1582,14 +1580,12 @@ function search_move(p) {
 
 	let x = piece_hex(p)
 	let m = piece_movement_allowance(p)
-	let u = 0
 
 	if (x === REINFORCEMENTS) {
 		let xs = find_reinforcement_hex(p)
 		if (typeof xs === "number") {
 			x = xs
 			if (!hex_has_any_piece(x, all_corps)) {
-				u = 1
 				move_seen[x-1000] = 1
 				move_flip[x-1000] = 0
 				search_move_imp(p, m, 1, x)
@@ -1597,7 +1593,6 @@ function search_move(p) {
 		} else {
 			for (x of xs) {
 				if (!hex_has_any_piece(x, all_corps)) {
-					u = 1
 					move_seen[x-1000] = 1
 					move_flip[x-1000] = 0
 					search_move_imp(p, m, 1, x)
@@ -2845,22 +2840,6 @@ function set_delete(set, item) {
 }
 
 // Map as plain sorted array of key/value pairs
-
-function map_has(map, key) {
-	let a = 0
-	let b = (map.length >> 1) - 1
-	while (a <= b) {
-		let m = (a + b) >> 1
-		let x = map[m<<1]
-		if (key < x)
-			b = m - 1
-		else if (key > x)
-			a = m + 1
-		else
-			return true
-	}
-	return false
-}
 
 function map_set(map, key, value) {
 	let a = 0
