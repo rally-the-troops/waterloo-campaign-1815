@@ -2028,7 +2028,7 @@ function goto_resolve_attack() {
 	log(">D" + a_die + " Attack")
 
 	if (game.rain > 0)
-		a_drm += log_drm(-1, "Artillery Ricochet Ineffective")
+		a_drm += log_drm(-1, "Artillery Ineffective")
 
 	// Unless Cav charging into town
 	if (!(town && piece_is_cavalry(a_unit)))
