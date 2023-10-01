@@ -361,7 +361,7 @@ function blow_unit(p, n) {
 }
 
 function eliminate_unit(p) {
-	if (piece_is_on_map(p)) {
+	if (piece_hex(p) !== ELIMINATED) {
 		log("P" + p + " eliminated.")
 		set_piece_hex(p, ELIMINATED)
 	}
