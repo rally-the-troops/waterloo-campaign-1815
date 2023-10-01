@@ -52,7 +52,7 @@ function find_piece(name) {
 for (let info of data.reinforcements)
 	info.list = info.list.map(name => find_piece(name))
 
-const NAPOLEON_HQ = find_piece("Napoleon HQ")
+const NAPOLEON_HQ = find_piece("Napoléon HQ")
 const OLD_GUARD = find_piece("Old Guard")
 const GRAND_BATTERY = find_piece("Grand Battery")
 const HILL_1 = find_piece("II Corps (Hill*)")
@@ -2482,7 +2482,7 @@ function setup_piece(side, name, hex, mode = 0) {
 function setup_june_15() {
 	game.turn = 1
 
-	setup_piece("French", "Napoleon HQ", 1017)
+	setup_piece("French", "Napoléon HQ", 1017)
 	setup_piece("French", "II Corps (Reille)", 1)
 	setup_piece("French", "I Corps (d'Erlon)", 1)
 	setup_piece("French", "III Corps (Vandamme)", 1)
@@ -2490,7 +2490,7 @@ function setup_june_15() {
 	setup_piece("French", "Guard Corps (Drouot)", 1)
 	setup_piece("French", "Guard Cav Corps (Guyot)", 1)
 	setup_piece("French", "Res Cav Corps (Grouchy)", 1)
-	setup_piece("French", "IV Corps (Gerard)", 1)
+	setup_piece("French", "IV Corps (Gérard)", 1)
 	setup_piece("French", "Grouchy HQ", 2)
 	setup_piece("French", "Ney HQ", 2)
 
@@ -2503,15 +2503,15 @@ function setup_june_15() {
 	setup_piece("Anglo", "Cav Detachment (Collaert)", 1211)
 	setup_piece("Anglo", "I Detachment (Perponcher)", 2618)
 
-	setup_piece("Prussian", "Blucher HQ", 1737)
+	setup_piece("Prussian", "Blücher HQ", 1737)
 	setup_piece("Prussian", "Cav Corps (Gneisenau)", 1737)
 	setup_piece("Prussian", "I Corps (Ziethen)", 1716)
 	setup_piece("Prussian", "II Corps (Pirch)", 2840)
 	setup_piece("Prussian", "III Corps (Thielmann)", 1340)
-	setup_piece("Prussian", "IV Corps (Bulow)", 3)
+	setup_piece("Prussian", "IV Corps (Bülow)", 3)
 	setup_piece("Prussian", "I Detachment (Steinmetz)", 1215)
 	setup_piece("Prussian", "I Detachment (Pirch)", 1217)
-	setup_piece("Prussian", "I Detachment (Lutzow)", 1221)
+	setup_piece("Prussian", "I Detachment (Lützow)", 1221)
 
 	init_turn()
 
@@ -2521,14 +2521,14 @@ function setup_june_15() {
 function setup_june_16() {
 	game.turn = 3
 
-	setup_piece("French", "Napoleon HQ", 1217)
+	setup_piece("French", "Napoléon HQ", 1217)
 	setup_piece("French", "Guard Corps (Drouot)", 1217)
 	setup_piece("French", "Grouchy HQ", 1621)
 	setup_piece("French", "Ney HQ", 2218)
 	setup_piece("French", "II Corps (Reille)", 2218)
 	setup_piece("French", "I Corps (d'Erlon)", 1617)
 	setup_piece("French", "III Corps (Vandamme)", 1721)
-	setup_piece("French", "IV Corps (Gerard)", 1221)
+	setup_piece("French", "IV Corps (Gérard)", 1221)
 	setup_piece("French", "VI Corps (Lobau)", 1117)
 	setup_piece("French", "Guard Cav Corps (Guyot)", 2317)
 	setup_piece("French", "Res Cav Corps (Grouchy)", 1822)
@@ -2543,13 +2543,13 @@ function setup_june_16() {
 	setup_piece("Anglo", "Cav Detachment (Collaert)", 1211)
 	setup_piece("Anglo", "I Detachment (Perponcher)", 2618)
 
-	setup_piece("Prussian", "Blucher HQ", 2324, 1)
+	setup_piece("Prussian", "Blücher HQ", 2324, 1)
 	setup_piece("Prussian", "Cav Corps (Gneisenau)", 2324)
 	setup_piece("Prussian", "I Corps (Ziethen)", 1922, 1)
 	setup_piece("Prussian", "II Corps (Pirch)", 1928)
 	setup_piece("Prussian", "III Corps (Thielmann)", 1737)
-	setup_piece("Prussian", "IV Corps (Bulow)", 3)
-	setup_piece("Prussian", "I Detachment (Lutzow)", 1623)
+	setup_piece("Prussian", "IV Corps (Bülow)", 3)
+	setup_piece("Prussian", "I Detachment (Lützow)", 1623)
 
 	init_turn()
 

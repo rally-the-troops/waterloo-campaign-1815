@@ -170,11 +170,11 @@ data.map = {
 }
 
 data.pieces = [
-	{ side: "French", type: "hq", stars: 1, range1: 8, range2: 3, name: "Napoleon HQ" },
+	{ side: "French", type: "hq", stars: 1, range1: 8, range2: 3, name: "Napoléon HQ" },
 	{ side: "French", type: "hq", stars: 1, range1: 4, range2: 2, name: "Ney HQ" },
 	{ side: "French", type: "hq", stars: 1, range1: 4, range2: 2, name: "Grouchy HQ" },
 	{ side: "Anglo", type: "hq", stars: 2, range1: 10, range2: 3, name: "Wellington HQ" },
-	{ side: "Prussian", type: "hq", stars: 1, range1: 8, range2: 3, name: "Blucher HQ" },
+	{ side: "Prussian", type: "hq", stars: 1, range1: 8, range2: 3, name: "Blücher HQ" },
 
 	// 5
 	{ side: "French", type: "inf", hq: [0,1,2], stars: 1, mp1: 4, mp2: 1, name: "I Corps (d'Erlon)" },
@@ -183,7 +183,7 @@ data.pieces = [
 	{ side: "French", type: "inf", hq: [0,1,2], stars: 2, mp1: 4, mp2: 1, name: "Guard Corps (Drouot)" },
 	{ side: "French", type: "cav", hq: [0,1,2], stars: 2, mp1: 6, mp2: 4, name: "Guard Cav Corps (Guyot)" },
 	{ side: "French", type: "cav", hq: [0,1,2], stars: 1, mp1: 6, mp2: 4, name: "Res Cav Corps (Grouchy)" },
-	{ side: "French", type: "inf", hq: [0,1,2], stars: 1, mp1: 4, mp2: 1, name: "IV Corps (Gerard)" },
+	{ side: "French", type: "inf", hq: [0,1,2], stars: 1, mp1: 4, mp2: 1, name: "IV Corps (Gérard)" },
 	{ side: "French", type: "inf", hq: [0,1,2], stars: 1, mp1: 4, mp2: 1, name: "VI Corps (Lobau)" },
 
 	// 13
@@ -197,7 +197,7 @@ data.pieces = [
 	{ side: "Prussian", type: "inf", hq: [4], stars: 1, mp1: 4, mp2: 1, name: "I Corps (Ziethen)" },
 	{ side: "Prussian", type: "inf", hq: [4], stars: 0, mp1: 4, mp2: 1, name: "II Corps (Pirch)" },
 	{ side: "Prussian", type: "inf", hq: [4], stars: 0, mp1: 4, mp2: 1, name: "III Corps (Thielmann)" },
-	{ side: "Prussian", type: "inf", hq: [4], stars: 1, mp1: 4, mp2: 1, name: "IV Corps (Bulow)" },
+	{ side: "Prussian", type: "inf", hq: [4], stars: 1, mp1: 4, mp2: 1, name: "IV Corps (Bülow)" },
 	{ side: "Prussian", type: "cav", hq: [4], stars: 0, mp1: 6, mp2: 4, name: "Cav Corps (Gneisenau)" },
 
 	// 23
@@ -215,7 +215,7 @@ data.pieces = [
 
 	{ side: "Prussian", type: "det", stars: 0, parent: [18], name: "I Detachment (Steinmetz)" },
 	{ side: "Prussian", type: "det", stars: 0, parent: [18], name: "I Detachment (Pirch)" },
-	{ side: "Prussian", type: "det", stars: 0, parent: [18], name: "I Detachment (Lutzow)" },
+	{ side: "Prussian", type: "det", stars: 0, parent: [18], name: "I Detachment (Lützow)" },
 	{ side: "Prussian", type: "det", stars: 0, parent: [19], name: "II Detachment (Sohr)" },
 	{ side: "Prussian", type: "det", stars: 0, parent: [20], name: "III Detachment (Marwitz)" },
 	{ side: "Prussian", type: "det", stars: 0, parent: [21], name: "IV Detachment (Schwerin)" },
@@ -248,7 +248,7 @@ data.reinforcements = [
 		hex: 1020,
 		list: [
 			"Res Cav Corps (Grouchy)",
-			"IV Corps (Gerard)",
+			"IV Corps (Gérard)",
 		]
 	},
 	{
@@ -265,7 +265,7 @@ data.reinforcements = [
 		side: "Coalition",
 		hex: 3241,
 		list: [
-			"IV Corps (Bulow)",
+			"IV Corps (Bülow)",
 		]
 	},
 	{
