@@ -96,6 +96,11 @@ main {
 	font-variant: small-caps;
 }
 
+.label.river {
+	font-size: 14px;
+	color: #359;
+}
+
 .hex {
 	box-sizing: border-box;
 	position: absolute;
