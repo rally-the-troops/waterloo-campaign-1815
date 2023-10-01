@@ -967,7 +967,6 @@ function goto_organization_phase() {
 	for (let p of anglo_det)
 		if (piece_is_on_map(p) || piece_hex(p) === ELIMINATED)
 			++n
-
 	if (n < 3) {
 		if (piece_hex(HILL_2) === SWAPPED && piece_hex(HILL_1) !== ELIMINATED) {
 			log_h3("Line of Communication Angst")
@@ -1819,7 +1818,6 @@ function pass_attack() {
 		set_next_player()
 		if (can_attack_any()) {
 			game.remain = roll_die()
-			//log("Rolled D" + game.remain + " more attacks.")
 			log(">D" + game.remain + " more attacks.")
 		} else {
 			log(game.active + " passed.")
@@ -1909,7 +1907,6 @@ states.attack_who = {
 
 function begin_attack() {
 	game.count = 0
-	// TODO: move to just before rolling so we can see committed fresh cav!
 	for (let p of friendly_infantry_corps())
 		if (can_attack_infantry_support(p))
 			game.count |= (1 << p)
@@ -1951,8 +1948,6 @@ states.attack_support = {
 				" at " + data.map.names[game.attack] +
 				". Commit defending cavalry?")
 			prompt("Attack " + piece_name(game.target) + " with " + piece_name(game.who) + ".")
-
-		// TODO: show DRMs?
 
 		let can_support = false
 		for (let p of friendly_cavalry_corps()) {
@@ -2085,9 +2080,6 @@ function goto_resolve_attack() {
 
 	set_piece_mode(a_unit, 1)
 
-	//log(`>Roll D${a_die} + ${a_drm} = ${a_die+a_drm}`)
-	//log(`>Roll D${a_die} + ${a_drm}`)
-
 	// DEFENDER DRM
 
 	logbr()
@@ -2125,23 +2117,11 @@ function goto_resolve_attack() {
 	if (!piece_is_detachment(d_unit))
 		set_piece_mode(d_unit, 1)
 
-	//log(`>Roll D${d_die} + ${d_drm} = ${d_die+d_drm}`)
-	//log(`>Roll D${d_die} + ${d_drm}`)
-
 	// COMBAT RESULT TABLE
-
-
-	let diff = (a_die + a_drm) - (d_die + d_drm)
 
 	logbr()
 
-/*
-	if (diff > 0)
-		log("Result +" + diff + ":")
-	else
-		log("Result " + diff + ":")
-*/
-
+	let diff = (a_die + a_drm) - (d_die + d_drm)
 	if (diff <= -5)
 		goto_eliminated_attacker()
 	else if (diff <= -3)
@@ -2161,7 +2141,6 @@ function goto_resolve_attack() {
 function goto_stalemate() {
 	log("Stalemate.")
 	logbr()
-	// TODO: pause ?
 	goto_pursuit()
 }
 
