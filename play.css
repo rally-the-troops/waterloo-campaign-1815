@@ -290,3 +290,13 @@ div.french.tip, div.anglo.tip, div.prussian.tip {
 .d4 { background-position: 60% 0; }
 .d5 { background-position: 80% 0; }
 .d6 { background-position: 100% 0; }
+
+body.shift .large:hover { transform: scale(2) }
+body.shift .small:hover { transform: scale(2) }
+body.shift .large.french:hover { background-image: url(images/sheet_french1_150.webp) }
+body.shift .large.anglo:hover { background-image: url(images/sheet_anglo1_150.webp) }
+body.shift .large.prussian:hover { background-image: url(images/sheet_prussian1_150.webp) }
+body.shift .large.marker:hover { background-image: url(images/sheet_misc_150.webp) }
+body.shift .small.french:hover { background-image: url(images/sheet_french2_150.webp) }
+body.shift .small.anglo:hover { background-image: url(images/sheet_anglo2_150.webp) }
+body.shift .small.prussian:hover { background-image: url(images/sheet_prussian2_150.webp) }

@@ -270,6 +270,7 @@ var focused_piece = -1
 
 function on_focus_piece(evt) {
 	let p = evt.target.my_id
+	evt.target.style.zIndex = 300
 	document.getElementById("status").textContent = evt.target.my_name
 	if (data.pieces[p].type === "hq") {
 		focused_piece = p
@@ -279,6 +280,7 @@ function on_focus_piece(evt) {
 
 function on_blur_piece(evt) {
 	let p = evt.target.my_id
+	evt.target.style.zIndex = evt.target.my_z
 	on_blur()
 	if (data.pieces[p].type === "hq") {
 		focused_piece = -1
@@ -490,7 +492,6 @@ function on_update() {
 			}
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
-			ui.pieces[id].style.zIndex = z
 		} else if (hex >= AVAILABLE_P1 && hex <= BLOWN) {
 			// OFF MAP DETACHMENTS / LEADERS / REINFORCEMENTS
 			ui.pieces[id].classList.remove("hide")
@@ -500,7 +501,6 @@ function on_update() {
 			ui.stack[hex] += 1
 			ui.pieces[id].style.top = y + "px"
 			ui.pieces[id].style.left = x + "px"
-			ui.pieces[id].style.zIndex = 0
 		} else if (hex >= 1 && hex <= 20) {
 			// ON TURN TRACK
 			ui.pieces[id].classList.remove("hide")
@@ -521,9 +521,9 @@ function on_update() {
 			// ELIMINATED or SWAPPED
 			ui.pieces[id].classList.add("hide")
 		}
-		//if (is_action("piece", id)) z = 101
 		if (view.target === id) z = 102
 		if (view.who === id) z = 103
+		ui.pieces[id].my_z = z
 		ui.pieces[id].style.zIndex = z
 		ui.pieces[id].classList.toggle("action", is_action("piece", id))
 		ui.pieces[id].classList.toggle("selected", view.who === id)
