@@ -270,7 +270,7 @@ var focused_piece = -1
 
 function on_focus_piece(evt) {
 	let p = evt.target.my_id
-	evt.target.style.zIndex = 300
+	evt.target.style.zIndex = 200
 	document.getElementById("status").textContent = evt.target.my_name
 	if (data.pieces[p].type === "hq") {
 		focused_piece = p
