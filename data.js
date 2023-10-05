@@ -184,7 +184,7 @@ data.pieces = [
 	{ side: "French", type: "cav", hq: [0,1,2], stars: 2, mp1: 6, mp2: 4, name: "Guard Cav Corps (Guyot)" },
 	{ side: "French", type: "cav", hq: [0,1,2], stars: 1, mp1: 6, mp2: 4, name: "Res Cav Corps (Grouchy)" },
 	{ side: "French", type: "inf", hq: [0,1,2], stars: 1, mp1: 4, mp2: 1, name: "IV Corps (Gérard)" },
-	{ side: "French", type: "inf", hq: [0,1,2], stars: 1, mp1: 4, mp2: 1, name: "VI Corps (Lobau)" },
+	{ side: "French", type: "inf", hq: [0,1,2], stars: 0, mp1: 4, mp2: 1, name: "VI Corps (Lobau)" },
 
 	// 13
 	{ side: "Anglo", type: "inf", hq: [3], stars: 2, mp1: 4, mp2: 1, name: "I Corps (Orange)" },
