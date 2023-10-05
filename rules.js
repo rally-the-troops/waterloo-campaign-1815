@@ -2034,10 +2034,13 @@ function goto_resolve_attack() {
 	if (!(town && piece_is_cavalry(a_unit)))
 		a_drm += log_drm(piece_stars(a_unit), "Battle Stars")
 
+	let hq_drm = 0
 	for (let hq of friendly_hqs())
 		if (piece_mode(hq) && pieces_are_associated(hq, a_unit))
 			if (calc_distance(piece_hex(hq), a_hex) <= piece_command_range(hq))
-				a_drm += log_drm(piece_stars(hq), "HQ")
+				hq_drm = Math.max(hq_drm, piece_stars(hq))
+	if (hq_drm > 0)
+		a_drm += log_drm(hq_drm, "HQ")
 
 	// Fresh Cavalry support
 	if (!town) {
@@ -2095,10 +2098,13 @@ function goto_resolve_attack() {
 	if (!(town && piece_is_cavalry(d_unit)))
 		d_drm += log_drm(piece_stars(d_unit), "Battle Stars")
 
+	hq_drm = 0
 	for (let hq of enemy_hqs())
 		if (piece_mode(hq) && pieces_are_associated(hq, d_unit))
 			if (calc_distance(piece_hex(hq), d_hex) <= piece_command_range(hq))
-				d_drm += log_drm(piece_stars(hq), "HQ")
+				hq_drm = Math.max(hq_drm, piece_stars(hq))
+	if (hq_drm > 0)
+		d_drm += log_drm(hq_drm, "HQ")
 
 	n = 0
 	for (let p of enemy_cavalry_corps()) {
