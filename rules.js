@@ -2181,7 +2181,7 @@ function goto_eliminated_defender() {
 }
 
 function goto_retreat_attacker() {
-	log("Attacker retreat")
+	log("Attacker retreat.")
 	logbr()
 	game.state = "retreat_attacker"
 }
