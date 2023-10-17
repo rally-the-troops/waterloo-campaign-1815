@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1">
+<meta name="viewport" content="width=device-width, height=device-height, user-scalable=no, interactive-widget=resizes-content, viewport-fit=cover">
+<meta name="theme-color" content="#444">
 <meta charset="utf-8">
 <title>WATERLOO CAMPAIGN 1815</title>
 <link rel="icon" href="favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/common/play.css">
+<link rel="stylesheet" href="/common/client.css">
 <link rel="stylesheet" href="play.css">
-<script defer src="/common/play.js"></script>
+<script defer src="/common/client.js"></script>
 <script defer src="data.js"></script>
 <script defer src="play.js"></script>
 </head>
@@ -16,22 +17,18 @@
 
 <header>
 	<div id="toolbar">
-	<div class="menu">
-		<div class="menu_title"><img src="/images/cog.svg"></div>
-		<div class="menu_popup">
-			<a class="menu_item" href="info/rules.html" target="_blank">Rules</a>
-			<a class="menu_item" href="info/charts.html" target="_blank">Charts</a>
-			<div class="resign menu_separator"></div>
-			<div class="resign menu_item" onclick="confirm_resign()">Resign</div>
-		</div>
+		<details>
+			<summary><img src="/images/cog.svg"></summary>
+			<menu>
+				<li><a href="info/rules.html" target="_blank">Rules</a>
+				<li><a href="info/charts.html" target="_blank">Charts</a>
+				<li class="resign separator">
+				<li class="resign" onclick="confirm_resign()">Resign
+			</menu>
+		</details>
+		<button onclick="toggle_pieces()"><img src="/images/earth-africa-europe.svg"></button>
+		<button onclick="toggle_hexes()"><img src="images/nested-hexagons.svg"></button>
 	</div>
-	<div class="icon_button" onclick="toggle_pieces()"><img src="/images/earth-africa-europe.svg"></div>
-	<div class="icon_button" onclick="toggle_hexes()"><img src="images/nested-hexagons.svg"></div>
-	<div class="icon_button" onclick="toggle_zoom()"><img src="/images/magnifying-glass.svg"></div>
-	<div class="icon_button" onclick="toggle_log()"><img src="/images/scroll-quill.svg"></div>
-	</div>
-	<div id="prompt"></div>
-	<div id="actions"></div>
 </header>
 
 <aside>
@@ -54,7 +51,7 @@
 	<div id="log"></div>
 </aside>
 
-<main>
+<main data-max-zoom="2">
 
 <div id="mapwrap">
 <div id="map">
