@@ -197,7 +197,6 @@ for (let p = 0; p < ui.pieces.length; ++p) {
 	ui.pieces[p].my_name = data.pieces[p].name
 }
 
-scroll_with_middle_mouse("main")
 
 /*
  * TOOLTIPS & ACTIONS
@@ -247,7 +246,7 @@ function on_blur_hex_tip(id) {
 }
 
 function on_click_hex_tip(id) {
-	ui.hexes[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
+	scroll_into_view(ui.hexes[id])
 }
 
 function on_focus_piece_tip(id) {
@@ -259,7 +258,7 @@ function on_blur_piece_tip(id) {
 }
 
 function on_click_piece_tip(id) {
-	ui.pieces[id].scrollIntoView({ block:"center", inline:"center", behavior:"smooth" })
+	scroll_into_view(ui.pieces[id])
 }
 
 function on_blur() {

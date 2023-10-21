@@ -34,14 +34,7 @@ main {
 	background-color: dimgray;
 }
 
-#mapwrap {
-	margin: 0 auto;
-	width: 2550px;
-	height: 1940px;
-}
-
 #map {
-	position: absolute;
 	width: 2550px;
 	height: 1940px;
 }
@@ -82,7 +75,6 @@ main {
 #hexes, #pieces, #labels { position: absolute }
 
 .label {
-	user-select: none;
 	position: absolute;
 	text-align: center;
 	font-family: "Source Serif SmText";
