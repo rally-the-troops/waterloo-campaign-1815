@@ -16,6 +16,20 @@ const DICE = {
 	D6: '<span class="dice d6"></span>',
 }
 
+const FORBIDDEN = [
+	[
+		2800, 2801, 2900, 2901, 3000, 3001, 3002, 3040, 3041,
+		3100, 3101, 3139, 3140, 3141, 3200, 3201, 3239, 3240,
+		3241, 3339, 3340, 3341, 3440, 3441, 3814, 3815, 3816,
+		3913, 3914, 3915, 3916, 4013, 4014, 4015, 4016, 4017,
+	],
+	[
+		1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021,
+		1022, 1114, 1115, 1116, 1117, 1120, 1121, 1215, 1216,
+		1218, 1221,
+	],
+]
+
 const yoff = 1555
 const xoff = 36
 const hex_dx = 58.67
@@ -184,6 +198,11 @@ for (let row = 0; row < data.map.rows; ++row) {
 		else
 			hex.my_name = String(hex_id)
 
+		if (set_has(FORBIDDEN[0], hex_id))
+			hex.classList.add("p1forbidden")
+		if (set_has(FORBIDDEN[1], hex_id))
+			hex.classList.add("p2forbidden")
+
 		document.getElementById("hexes").appendChild(hex)
 	}
 }
@@ -209,16 +228,7 @@ function toggle_pieces() {
 function toggle_hexes() {
 	// Cycle between showing nothing, command ranges, and zocs
 	let elt = document.getElementById("hexes")
-	if (elt.className == "")
-		elt.className = "p1hq"
-	else if (elt.className == "p1hq")
-		elt.className = "p2hq"
-	else if (elt.className == "p2hq")
-		elt.className = "p1zoc"
-	else if (elt.className == "p1zoc")
-		elt.className = "p2zoc"
-	else if (elt.className == "p2zoc")
-		elt.className = ""
+	elt.dataset.show = ((elt.dataset.show|0) + 1) % 5
 }
 
 function is_action(action, arg) {

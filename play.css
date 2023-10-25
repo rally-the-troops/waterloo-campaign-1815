@@ -54,6 +54,11 @@ main {
 	box-shadow: 0 0 8px #0008;
 }
 
+#hexes {
+	width: 2550px;
+	height: 1650px;
+}
+
 #tracks {
 	top: 1670px;
 	left: 20px;
@@ -121,14 +126,34 @@ main {
 .hex.a_range { background-color: #b326 !important }
 .hex.p_range { background-color: #8286 !important }
 
-#hexes.p1hq .hex.p1hq { background-color: #05a4 }
-#hexes.p2hq .hex.p2hq { background-color: #b324 }
+#hexes[data-show="1"] .hex.p1hq { background-color: #05a4 }
+#hexes[data-show="1"] .hex.p2hq { background-color: #b324 }
 
-#hexes.p1zoc .hex.p1zoi { background-color: #05a4 }
-#hexes.p1zoc .hex.p1zoc { background-color: #05a8 }
+#hexes[data-show="2"] .hex.p1zoi { background-color: #05a4 }
+#hexes[data-show="2"] .hex.p1zoc { background-color: #05a8 }
 
-#hexes.p2zoc .hex.p2zoi { background-color: #b324 }
-#hexes.p2zoc .hex.p2zoc { background-color: #b328 }
+#hexes[data-show="3"] .hex.p2zoi { background-color: #b324 }
+#hexes[data-show="3"] .hex.p2zoc { background-color: #b328 }
+
+#hexes[data-show="4"] .hex.p1forbidden { background-color: #0008 }
+#hexes[data-show="4"] .hex.p2forbidden { background-color: #0008 }
+
+#hexes_show_label {
+	position: absolute;
+	bottom: 2px;
+	left: 1275px;
+	left: 30px;
+	font-size: 18px;
+	font-weight: bold;
+	background-color: #81393a;
+	color: #e7ad65;
+	padding: 0 8px;
+}
+
+#hexes[data-show="1"] #hexes_show_label::after { content: "Overlay - HQ Range" }
+#hexes[data-show="2"] #hexes_show_label::after { content: "Overlay - French ZoC and ZoI" }
+#hexes[data-show="3"] #hexes_show_label::after { content: "Overlay - Coalition ZoC and ZoI" }
+#hexes[data-show="4"] #hexes_show_label::after { content: "Overlay - Forbidden entry hexes" }
 
 .large {
 	position: absolute;

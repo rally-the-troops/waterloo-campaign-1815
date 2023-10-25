@@ -26,8 +26,8 @@ const TURN_NAME = [
 
 const last_hex = 1000 + (data.map.rows - 1) * 100 + (data.map.cols - 1)
 
-const p1_forbidden = data.map.forbidden[0]
-const p2_forbidden = data.map.forbidden[1]
+const p1_forbidden_entry = data.map.forbidden[0]
+const p2_forbidden_entry = data.map.forbidden[1]
 
 var move_seen = new Array(last_hex - 999).fill(0)
 var move_cost = new Array(last_hex - 999).fill(0)
@@ -161,6 +161,27 @@ for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
 		data_roads[road[k]-1000].push([road_id, k])
 	}
 }
+
+const p1_forbidden = []
+const p2_forbidden = []
+
+function calc_forbidden(set, a) {
+	set_add(set, a)
+	for_each_adjacent(a, b => {
+		if (!is_river(a, b)) {
+			set_add(set, b)
+			for_each_adjacent(b, c => {
+				if (!is_river(b, c))
+					set_add(set, c)
+			})
+		}
+	})
+}
+
+for (let entry of p1_forbidden_entry)
+	calc_forbidden(p1_forbidden, entry)
+for (let entry of p2_forbidden_entry)
+	calc_forbidden(p2_forbidden, entry)
 
 function make_piece_list(f) {
 	let list = []
