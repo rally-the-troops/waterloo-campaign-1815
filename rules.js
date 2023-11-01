@@ -471,6 +471,41 @@ function update_zoc() {
 	}
 }
 
+// === PRE-GAME SETUP HQ MODE ===
+
+function goto_setup_june_15_mode() {
+	log_h3("Setup")
+	game.active = P1
+	game.state = "setup_hq"
+}
+
+states.setup_hq = {
+	inactive: "setup HQs",
+	prompt() {
+		prompt("Setup: Choose mode for your HQs.")
+		for (let p of friendly_hqs())
+			if (piece_is_on_map(p))
+				gen_action_piece(p)
+		view.actions.next = 1
+	},
+	piece(p) {
+		set_piece_mode(p, 1 - piece_mode(p))
+	},
+	next() {
+		log_hq_placement_step(friendly_hqs())
+		end_setup_june_15_mode()
+	},
+}
+
+function end_setup_june_15_mode() {
+	if (game.active === P2) {
+		game.active = P1
+		goto_movement_phase()
+	} else  {
+		game.active = P2
+	}
+}
+
 // === COMMAND PHASE ===
 
 function count_french_reinforcements() {
@@ -549,11 +584,14 @@ function goto_hq_placement_step() {
 }
 
 function log_hq_placement_step(hqs) {
-	for (let p of hqs)
-		if (piece_mode(p))
-			log("P" + p + " \u2013 Battle\nat " + piece_hex(p))
-		else
-			log("P" + p + "\nat " + piece_hex(p))
+	for (let p of hqs) {
+		if (piece_is_on_map(p)) {
+			if (piece_mode(p))
+				log("P" + p + " \u2013 Battle\nat " + piece_hex(p))
+			else
+				log("P" + p + "\nat " + piece_hex(p))
+		}
+	}
 }
 
 function end_hq_placement_step() {
@@ -2516,7 +2554,7 @@ function setup_june_15() {
 
 	init_turn()
 
-	goto_movement_phase()
+	goto_setup_june_15_mode()
 }
 
 function setup_june_16() {
