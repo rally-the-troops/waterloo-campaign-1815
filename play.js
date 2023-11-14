@@ -16,18 +16,66 @@ const DICE = {
 	D6: '<span class="dice d6"></span>',
 }
 
-const FORBIDDEN = [
-	[
-		2800, 2801, 2900, 2901, 3000, 3001, 3002, 3040, 3041,
-		3100, 3101, 3139, 3140, 3141, 3200, 3201, 3239, 3240,
-		3241, 3339, 3340, 3341, 3440, 3441, 3814, 3815, 3816,
-		3913, 3914, 3915, 3916, 4013, 4014, 4015, 4016, 4017,
-	],
-	[
-		1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021,
-		1022, 1114, 1115, 1116, 1117, 1120, 1121, 1215, 1216,
-		1218, 1221,
-	],
+const FORBIDDEN1 = [
+	2800, [ 15, 17 ],
+	2801, [ 15, 17 ],
+	2900, [ 15, 17 ],
+	2901, [ 15, 17 ],
+	3000, [ 15, 17 ],
+	3001, [ 15, 17 ],
+	3002, [ 15, 17 ],
+	3040, [ 21 ],
+	3041, [ 21 ],
+	3100, [ 15, 17 ],
+	3101, [ 15, 17 ],
+	3139, [ 21 ],
+	3140, [ 21 ],
+	3141, [ 21 ],
+	3200, [ 15, 17 ],
+	3201, [ 15, 17 ],
+	3239, [ 21 ],
+	3240, [ 21 ],
+	3241, [ 21 ],
+	3339, [ 21 ],
+	3340, [ 21 ],
+	3341, [ 21 ],
+	3440, [ 21 ],
+	3441, [ 21 ],
+	3814, [ 16 ],
+	3815, [ 16 ],
+	3816, [ 16 ],
+	3913, [ 16 ],
+	3914, [ 16 ],
+	3915, [ 16 ],
+	3916, [ 16 ],
+	4013, [ 16 ],
+	4014, [ 16 ],
+	4015, [ 16 ],
+	4016, [ 16 ],
+	4017, [ 16 ],
+]
+
+const FORBIDDEN2 = [
+	1013, [ 5, 6 ],
+	1014, [ 5, 6 ],
+	1015, [ 5, 6, 7, 8, 9, 12 ],
+	1016, [ 5, 6, 7, 8, 9, 12 ],
+	1017, [ 5, 6, 7, 8, 9, 12 ],
+	1018, [ 7, 8, 9, 10, 11, 12 ],
+	1019, [ 7, 8, 9, 10, 11, 12 ],
+	1020, [ 7, 8, 9, 10, 11, 12 ],
+	1021, [ 10, 11 ],
+	1022, [ 10, 11 ],
+	1114, [ 5, 6 ],
+	1115, [ 5, 6, 7, 8, 9, 12 ],
+	1116, [ 5, 6, 7, 8, 9, 12 ],
+	1117, [ 7, 8, 9, 12 ],
+	1120, [ 10, 11 ],
+	1121, [ 10, 11 ],
+	1215, [ 5, 6 ],
+	1216, [ 5, 6, 7, 8, 9, 12 ],
+	1218, [ 7, 8, 9, 12 ],
+	1221, [ 10, 11 ],
 ]
 
 const yoff = 1555
@@ -197,12 +245,6 @@ for (let row = 0; row < data.map.rows; ++row) {
 			hex.my_name = String(hex_id) + " (" + data.map.names[hex_id] + ")"
 		else
 			hex.my_name = String(hex_id)
-
-		if (set_has(FORBIDDEN[0], hex_id))
-			hex.classList.add("p1forbidden")
-		if (set_has(FORBIDDEN[1], hex_id))
-			hex.classList.add("p2forbidden")
-
 		document.getElementById("hexes").appendChild(hex)
 	}
 }
@@ -414,6 +456,19 @@ function is_piece_support(id) {
 	return false
 }
 
+function is_forbidden_hex_for(map, x) {
+	let reinf = map_get(map, x, null)
+	if (reinf) {
+		// check if reinforcements affecting this hex are yet to enter
+		for (let p of reinf) {
+			let x = piece_hex(p)
+			if (x === REINFORCEMENTS || (x >= 1 && x <= 20))
+				return true
+		}
+	}
+	return false
+}
+
 function on_update() {
 	ui.stack.fill(0)
 
@@ -440,6 +495,8 @@ function on_update() {
 			ui.hexes[id].classList.toggle("p2zoi", is_p2_zoi(id))
 			ui.hexes[id].classList.toggle("p1hq", is_in_range(id, 0) || is_in_range(id, 1) || is_in_range(id, 2))
 			ui.hexes[id].classList.toggle("p2hq", is_in_range(id, 3) || is_in_range(id, 4))
+			ui.hexes[id].classList.toggle("p1forbidden", is_forbidden_hex_for(FORBIDDEN1, id))
+			ui.hexes[id].classList.toggle("p2forbidden", is_forbidden_hex_for(FORBIDDEN2, id))
 		}
 	}
 

@@ -165,23 +165,37 @@ for (let road_id = 0; road_id < data.map.roads.length; ++road_id) {
 const p1_forbidden = []
 const p2_forbidden = []
 
-function calc_forbidden(set, a) {
-	set_add(set, a)
+function add_forbidden(map, hex, list) {
+	let set = map_get(map, hex, null)
+	if (!set)
+		map_set(map, hex, set=[])
+	for (let u of list)
+		set_add(set, u)
+}
+
+function calc_forbidden(side, map, a) {
+	let units = null
+	for (let info of data.reinforcements) {
+		if (info.side === side)
+			if (info.hex === a || (Array.isArray(info.hex) && info.hex.includes(a)))
+				units = info.list
+	}
+	add_forbidden(map, a, units)
 	for_each_adjacent(a, b => {
 		if (!is_river(a, b)) {
-			set_add(set, b)
+			add_forbidden(map, b, units)
 			for_each_adjacent(b, c => {
 				if (!is_river(b, c))
-					set_add(set, c)
+					add_forbidden(map, c, units)
 			})
 		}
 	})
 }
 
 for (let entry of p1_forbidden_entry)
-	calc_forbidden(p1_forbidden, entry)
+	calc_forbidden("Coalition", p1_forbidden, entry)
 for (let entry of p2_forbidden_entry)
-	calc_forbidden(p2_forbidden, entry)
+	calc_forbidden("French", p2_forbidden, entry)
 
 function make_piece_list(f) {
 	let list = []
@@ -310,9 +324,20 @@ function piece_is_in_zoc_of_hex(p, x) {
 }
 
 function is_forbidden_hex(x) {
+	let reinf = null
 	if (game.active === P1)
-		return set_has(p1_forbidden, x)
-	return set_has(p2_forbidden, x)
+		reinf = map_get(p1_forbidden, x, null)
+	else
+		reinf = map_get(p2_forbidden, x, null)
+	if (reinf) {
+		// check if reinforcements affecting this hex are yet to enter
+		for (let p of reinf) {
+			let x = piece_hex(p)
+			if (x === REINFORCEMENTS || (x >= 1 && x <= 20))
+				return true
+		}
+	}
+	return false
 }
 
 function is_river(a, b) {
@@ -2905,6 +2930,22 @@ function set_delete(set, item) {
 }
 
 // Map as plain sorted array of key/value pairs
+
+function map_get(map, key, missing) {
+	let a = 0
+	let b = (map.length >> 1) - 1
+	while (a <= b) {
+		let m = (a + b) >> 1
+		let x = map[m<<1]
+		if (key < x)
+			b = m - 1
+		else if (key > x)
+			a = m + 1
+		else
+			return map[(m<<1)+1]
+	}
+	return missing
+}
 
 function map_set(map, key, value) {
 	let a = 0
