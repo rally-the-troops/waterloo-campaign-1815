@@ -127,12 +127,15 @@ for (let a of data.map.brussels_couillet_road)
 
 const data_rivers = []
 const data_bridges = []
+const data_rivers_and_bridges = []
 const data_road_hexsides = []
 const data_roads = []
 
 for (let [a, b] of data.map.rivers) {
 	set_add(data_rivers, a * 10000 + b)
 	set_add(data_rivers, b * 10000 + a)
+	set_add(data_rivers_and_bridges, a * 10000 + b)
+	set_add(data_rivers_and_bridges, b * 10000 + a)
 }
 
 for (let [a, b] of data.map.bridges) {
@@ -348,6 +351,10 @@ function is_bridge(a, b) {
 	return set_has(data_bridges, a * 10000 + b)
 }
 
+function is_river_or_bridge(a, b) {
+	return set_has(data_rivers_and_bridges, a * 10000 + b)
+}
+
 function is_road_hexside(a, b) {
 	return set_has(data_road_hexsides, a * 10000 + b)
 }
@@ -465,22 +472,39 @@ function is_enemy_cav_zoc(x) { return game.active !== P1 ? is_p1_cav_zoc(x) : is
 function is_enemy_zoc_or_cav_zoi(x) { return game.active !== P1 ? is_p1_zoc_or_cav_zoi(x) : is_p2_zoc_or_cav_zoi(x) }
 function is_enemy_zoc_or_zoi(x) { return game.active !== P1 ? is_p1_zoc_or_zoi(x) : is_p2_zoc_or_zoi(x) }
 
-function update_zoc_imp(zoc, zoi, units) {
+function recalc_zoc(zoc, units) {
 	for (let p of units) {
 		let a = piece_hex(p)
 		zoc_cache[a - 1000] |= zoc
 		for_each_adjacent(a, b => {
 			if (!is_river(a, b)) {
 				zoc_cache[b - 1000] |= zoc
-				if (zoi) {
-					for_each_adjacent(b, c => {
-						if (!is_bridge(b, c))
-							zoc_cache[c - 1000] |= zoi
-					})
-				}
 			}
 		})
 	}
+}
+
+function recalc_zoi(zoi, units) {
+	for (let p of units) {
+		let a = piece_hex(p)
+		zoc_cache[a - 1000] |= zoi
+		for_each_adjacent(a, (b) => {
+			if (!is_river_or_bridge(a, b)) {
+				zoc_cache[b - 1000] |= zoi
+				for_each_adjacent(b, (c) => {
+					if (!is_river_or_bridge(b, c)) {
+						zoc_cache[c - 1000] |= zoi
+					}
+				})
+			}
+		})
+	}
+}
+
+function update_zoc_imp(zoc, zoi, units) {
+	recalc_zoc(zoc, units)
+	if (zoi)
+		recalc_zoi(zoi, units)
 }
 
 function update_zoc() {
