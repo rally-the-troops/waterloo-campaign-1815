@@ -128,6 +128,7 @@ main {
 
 #hexes[data-show="1"] .hex.p1hq { background-color: #05a4 }
 #hexes[data-show="1"] .hex.p2hq { background-color: #b324 }
+#hexes[data-show="1"] .hex.p1hq.p2hq { background-color: #6074 }
 
 #hexes[data-show="2"] .hex.p1zoi { background-color: #05a4 }
 #hexes[data-show="2"] .hex.p1zoc { background-color: #05a8 }
