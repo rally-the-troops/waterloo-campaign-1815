@@ -1636,35 +1636,39 @@ function search_detachment_road(start, range) {
 	}
 }
 
-function search_detachment_road_segment(queue, here, road, cur, dir) {
+function search_detachment_road_segment(queue, here, road, k, dir) {
 	let mp = move_cost[here-1000]
-	let qq = false
-	cur += dir
+	for (;;) {
+		let next = road[k += dir]
 
-	while (mp > 0 && cur >= 0 && cur < road.length) {
-		let next = road[cur]
-
+		// Cannot enter
 		if (!can_trace_detachment(here, next))
 			return
 
-		let next_mp = mp - 1
+		// Movement cost
+		mp--
 
+		// Remember best path
 		let seen_mp = move_cost[next-1000]
-		if (seen_mp === 255 || next_mp > seen_mp) {
+		if (seen_mp === 255 || mp > seen_mp) {
 			move_seen[next-1000] = 1
-			move_cost[next-1000] = next_mp
-			qq = (next_mp > 0)
-		} else {
+			move_cost[next-1000] = mp
+		}
+
+		// No more MP (stop search)
+		if (mp <= 0)
+			return
+
+		// End of the road
+		if (k === 0 || k === road.length - 1) {
+			// Keep searching if old roads leading here are worse
+			if (seen_mp === 255 || mp > seen_mp)
+				queue.push(next)
 			return
 		}
 
-		cur += dir
 		here = next
-		mp = next_mp
 	}
-
-	if (qq)
-		queue.push(here)
 }
 
 function can_piece_enter(p) {
@@ -1790,44 +1794,47 @@ function search_move_road(start, ma, hq_hex, hq_range, is_cav) {
 	}
 }
 
-function search_move_road_segment(queue, here, road, cur, dir, hq_hex, hq_range, is_cav) {
+function search_move_road_segment(queue, here, road, k, dir, hq_hex, hq_range, is_cav) {
 	let mp = move_cost[here-1000]
-	let qq = false
-	cur += dir
+	for (;;) {
+		let next = road[k += dir]
 
-	while (mp > 0 && cur >= 0 && cur < road.length) {
-		let next = road[cur]
-
+		// Cannot enter
 		if (!can_move_into(here, next, hq_hex, hq_range, is_cav))
 			return
 
-		let next_mp = mp - 1
+		// Movement cost
 		if (must_flip_zoc(here, next, is_cav))
-			next_mp = -1
+			mp = -1
 		else if (must_stop_zoc_zoi(here, next, is_cav))
-			next_mp = 0
+			mp = 0
+		else
+			mp--
 
+		// Remember best path
 		let seen_mp = move_cost[next-1000]
-		if (seen_mp === 255 || next_mp > seen_mp) {
+		if (seen_mp === 255 || mp > seen_mp) {
 			map_set(move_from_road, next, here)
 			move_seen[next-1000] = 1
-			move_cost[next-1000] = next_mp
-
-			if (next_mp >= 0)
+			move_cost[next-1000] = mp
+			if (mp >= 0)
 				move_flip[next-1000] = 0
+		}
 
-			qq = (next_mp > 0)
-		} else {
+		// No more MP (stop search)
+		if (mp <= 0)
+			return
+
+		// End of the road
+		if (k === 0 || k === road.length - 1) {
+			// Keep searching if old roads leading here are worse
+			if (seen_mp === 255 || mp > seen_mp)
+				queue.push(next)
 			return
 		}
 
-		cur += dir
 		here = next
-		mp = next_mp
 	}
-
-	if (qq)
-		queue.push(here)
 }
 
 function search_withdrawal(here) {
