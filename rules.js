@@ -1226,8 +1226,23 @@ states.withdrawal_to = {
 		let from = piece_hex(game.who)
 		log("P" + game.who + "\nfrom " + from + "\nto " + x)
 		set_piece_hex(game.who, x)
-		game.who = -1
 		recall_grand_battery_alone()
+		game.state = "withdrawal_confirm"
+	},
+}
+
+states.withdrawal_confirm = {
+	prompt() {
+		prompt("Withdraw " + piece_name(game.who) + " to " + hex_name(piece_hex(game.who)) + "?")
+		if (piece_is_on_map(game.who))
+			gen_action_piece(game.who)
+		view.actions.next = 1
+	},
+	piece(p) {
+		this.next()
+	},
+	next() {
+		game.who = -1
 		next_withdrawal()
 	},
 }
@@ -1485,7 +1500,6 @@ states.movement_to = {
 			if (piece_is_in_zoc_of_hex(p, x))
 				set_piece_mode(p, 1)
 
-		game.who = -1
 		recall_grand_battery_alone()
 
 		// TODO: forbidden (retreat then next_movement)
@@ -1496,6 +1510,28 @@ states.movement_to = {
 			--game.prussian_moves
 
 		logbr()
+
+		game.state = "movement_confirm"
+	},
+}
+
+function hex_name(x) {
+	let n = data.map.names[x]
+	return n ? n : x
+}
+
+states.movement_confirm = {
+	inactive: "move",
+	prompt() {
+		prompt("Move " + piece_name(game.who) + " to " + hex_name(piece_hex(game.who)) + "?")
+		gen_action_piece(game.who)
+		view.actions.next = 1
+	},
+	piece(p) {
+		this.next()
+	},
+	next() {
+		game.who = -1
 		next_movement()
 	},
 }
@@ -2379,15 +2415,32 @@ states.retreat_attacker = {
 			gen_action_hex(x)
 	},
 	hex(x) {
+		push_undo()
 		log("P" + game.who + " retreated to " + x + ".")
 		eliminate_detachments_stacked_with_corps(game.who)
 		set_piece_hex(game.who, x)
 		// TODO: forbidden (retreat again)
-		next_attack()
+		game.state = "retreat_attacker_confirm"
 	},
 	piece(p) {
 		eliminate_detachments_stacked_with_corps(p)
 		blow_unit(p, 2)
+		next_attack()
+	},
+}
+
+states.retreat_attacker_confirm = {
+	prompt() {
+		prompt("Retreat " + piece_name(game.who) + " to " + hex_name(piece_hex(game.who)) + "?")
+		if (piece_is_on_map(game.who))
+			gen_action_piece(game.who)
+		view.actions.next = 1
+	},
+	piece(p) {
+		this.next()
+	},
+	next() {
+		clear_undo()
 		next_attack()
 	},
 }
@@ -2419,16 +2472,33 @@ states.retreat_defender = {
 			gen_action_hex(x)
 	},
 	hex(x) {
+		push_undo()
 		log("P" + game.target + " retreated to " + x + ".")
 		eliminate_detachments_stacked_with_corps(game.target)
 		set_piece_hex(game.target, x)
 		// TODO: forbidden (retreat again)
-		set_next_player()
-		goto_pursuit()
+		game.state = "retreat_defender_confirm"
 	},
 	piece(p) {
 		eliminate_detachments_stacked_with_corps(p)
 		blow_unit(p, 2)
+		set_next_player()
+		goto_pursuit()
+	},
+}
+
+states.retreat_defender_confirm = {
+	prompt() {
+		prompt("Retreat " + piece_name(game.target) + " to " + hex_name(piece_hex(game.target)) + "?")
+		if (piece_is_on_map(game.target))
+			gen_action_piece(game.target)
+		view.actions.next = 1
+	},
+	piece(p) {
+		this.next()
+	},
+	next() {
+		clear_undo()
 		set_next_player()
 		goto_pursuit()
 	},
