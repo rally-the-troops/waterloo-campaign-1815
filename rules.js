@@ -1316,6 +1316,16 @@ function pass_movement() {
 		if (can_move_any()) {
 			let die = roll_die()
 
+			if (game.turn <= 2 && game.active === P1) {
+				game.remain = game.french_moves
+				return
+			}
+
+			if (game.turn === 2 && game.active === P2) {
+				game.remain = game.prussian_moves
+				return
+			}
+
 			let n = 0
 			for (let p of friendly_corps()) {
 				if (piece_is_not_in_enemy_zoc_or_zoi(p))
@@ -1350,12 +1360,7 @@ states.movement = {
 		let may_pass = 1
 
 		let remain = game.remain
-		if (game.turn <= 2 && game.active === P1)
-			remain = Math.min(remain, game.french_moves)
-		if (game.turn === 2 && game.active === P2)
-			remain = Math.min(remain, game.prussian_moves)
-
-		if (game.remain > 0)
+		if (remain > 0)
 			prompt("Movement: " + remain + " moves remain.")
 		else
 			prompt("Movement.")
