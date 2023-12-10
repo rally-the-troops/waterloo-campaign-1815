@@ -222,8 +222,8 @@ let ui = {
 	remain: document.getElementById("marker_remain"),
 	french_moves: document.getElementById("marker_french_moves"),
 	prussian_moves: document.getElementById("marker_prussian_moves"),
-	french_vp: document.querySelector("#role_French .role_vp"),
-	coalition_vp: document.querySelector("#role_Coalition .role_vp"),
+	french_vp: document.querySelector("#role_French .role_stat"),
+	coalition_vp: document.querySelector("#role_Coalition .role_stat"),
 }
 
 for (let row = 0; row < data.map.rows; ++row) {

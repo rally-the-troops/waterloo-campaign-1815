@@ -7,11 +7,9 @@ header { background-color: hsl(39, 25%, 75%); }
 #log .h3 { background-color: hsl(45, 30%, 80%); }
 
 body.French header.your_turn { background-color:  hsl(195, 72%, 75%); }
-#role_French .role_name { background-color:  hsl(195, 72%, 80%); }
+#role_French { background-color:  hsl(195, 72%, 80%); }
 body.Coalition header.your_turn { background-color: white; }
-#role_Coalition .role_name { background-color: white; }
-
-.role_vp { float: right; }
+#role_Coalition { background-color: white; }
 
 #log .h1 { font-weight: bold; padding-top:2px; padding-bottom:2px; }
 #log .h2 { padding-top:1px; padding-bottom:1px; }
