@@ -1318,11 +1318,15 @@ function pass_movement() {
 
 			if (game.turn <= 2 && game.active === P1) {
 				game.remain = game.french_moves
+				if (game.remain === 0)
+					end_movement()
 				return
 			}
 
 			if (game.turn === 2 && game.active === P2) {
 				game.remain = game.prussian_moves
+				if (game.remain === 0)
+					end_movement()
 				return
 			}
 
