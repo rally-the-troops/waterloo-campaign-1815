@@ -2839,18 +2839,6 @@ exports.action = function (state, player, action, arg) {
 	return game
 }
 
-exports.resign = function (state, player) {
-	zoc_valid = false
-	game = state
-	if (game.state !== 'game_over') {
-		if (player === P1)
-			goto_game_over(P2, P1 + " resigned.")
-		if (player === P2)
-			goto_game_over(P1, P2 + " resigned.")
-	}
-	return game
-}
-
 function goto_game_over(result, victory) {
 	game.state = "game_over"
 	game.active = "None"
